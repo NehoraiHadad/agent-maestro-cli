@@ -311,6 +311,26 @@ export class Maestro {
       if (event.type === 'result') {
         return 'completed';
       }
+    } else if (agentName === 'gemini') {
+      // Gemini events: {"type":"init|message|tool_use|tool_result|error|result",...}
+      if (event.type === 'init') {
+        return 'initializing...';
+      }
+      if (event.type === 'message') {
+        return 'thinking...';
+      }
+      if (event.type === 'tool_use' && event.tool) {
+        return `using tool: ${event.tool.name || 'unknown'}`;
+      }
+      if (event.type === 'tool_result') {
+        return 'processing tool result...';
+      }
+      if (event.type === 'error') {
+        return 'error occurred';
+      }
+      if (event.type === 'result') {
+        return 'completed';
+      }
     }
     return null;
   }
@@ -332,6 +352,15 @@ export class Maestro {
           return content.map(c => c.text || '').join('');
         }
         return content.text || content;
+      }
+    } else if (agentName === 'gemini') {
+      // Gemini: extract response from result event
+      if (event.type === 'result' && event.response) {
+        return event.response;
+      }
+      // Or from message event if it contains the text
+      if (event.type === 'message' && event.text) {
+        return event.text;
       }
     }
     return null;

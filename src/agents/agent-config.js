@@ -41,8 +41,10 @@ export const AGENTS = {
     ],
     flags: {
       prompt: '-p',
-      json: '--output-format json'
-      // Note: Gemini CLI does not support real streaming, only batch JSON
+      json: ['--output-format', 'json'],
+      stream: ['--output-format', 'stream-json']
+      // Note: stream-json documented but not available in v0.9.0
+      // Will be supported when Gemini CLI adds this feature
     },
     requiresAuth: true,
     authType: 'Google account / AI Studio key',
