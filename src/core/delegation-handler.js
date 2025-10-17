@@ -80,9 +80,12 @@ export class DelegationHandler {
       let result = '';
       let timeoutId;
 
-      // Spawn process
+      // Spawn process with -p flag for non-interactive execution
       try {
-        this.ptyManager.spawn(id, agent.command, []);
+        const promptFlag = agent.flags?.prompt || '-p';
+        const args = [promptFlag, prompt];
+
+        this.ptyManager.spawn(id, agent.command, args);
 
         // Handle data
         this.ptyManager.onData(id, (data) => {
@@ -102,11 +105,6 @@ export class DelegationHandler {
           // Cleanup
           this.ptyManager.cleanup();
         });
-
-        // Write prompt
-        setTimeout(() => {
-          this.ptyManager.write(id, `${prompt}\n`);
-        }, 100);
 
         // Set timeout
         timeoutId = setTimeout(() => {
