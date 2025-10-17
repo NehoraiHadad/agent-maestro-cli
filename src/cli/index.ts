@@ -1,0 +1,26 @@
+#!/usr/bin/env node
+
+/**
+ * CLI Entry Point
+ * Main command-line interface for AgentMaestro
+ */
+
+import { Command } from 'commander';
+import { StartCommand } from './commands/StartCommand.js';
+import { ListCommand } from './commands/ListCommand.js';
+import { InfoCommand } from './commands/InfoCommand.js';
+
+const program = new Command();
+
+program
+  .name('maestro')
+  .description('🎭 Multi-agent AI orchestration CLI')
+  .version('2.0.0');
+
+// Register commands
+StartCommand.register(program);
+ListCommand.register(program);
+InfoCommand.register(program);
+
+// Parse command line arguments
+program.parse(process.argv);

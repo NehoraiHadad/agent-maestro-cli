@@ -1,15 +1,19 @@
 {
   "name": "agent-maestro",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Meta-orchestrator CLI for collaborative AI agents (Claude Code, Gemini CLI, Codex)",
   "type": "module",
-  "main": "src/index.js",
+  "main": "dist/cli/index.js",
   "bin": {
-    "maestro": "./src/index.js"
+    "maestro": "./dist/cli/index.js"
   },
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
+    "build": "tsc",
+    "build:watch": "tsc --watch",
+    "start": "node dist/cli/index.js",
+    "dev": "tsc && node --watch dist/cli/index.js",
+    "clean": "rm -rf dist",
+    "prebuild": "npm run clean",
     "test": "node tests/run-tests.js"
   },
   "keywords": [
@@ -31,7 +35,11 @@
     "ora": "^8.0.1",
     "inquirer": "^10.0.0"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/inquirer": "^9.0.0",
+    "typescript": "^5.3.0"
+  },
   "engines": {
     "node": ">=18.0.0"
   }
