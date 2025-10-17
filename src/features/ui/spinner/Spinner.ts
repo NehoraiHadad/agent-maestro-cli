@@ -23,7 +23,7 @@ export class Spinner {
 
     this.spinner = ora({
       text: this.formatText(text, color),
-      color: (color as any) || 'cyan',
+      color: this.getOraColor(color) as any,
       spinner: 'dots'
     }).start();
 
@@ -39,7 +39,7 @@ export class Spinner {
     if (this.spinner) {
       this.spinner.text = this.formatText(text, color);
       if (color) {
-        this.spinner.color = color;
+        this.spinner.color = this.getOraColor(color);
       }
     }
     return this;
@@ -97,6 +97,31 @@ export class Spinner {
    */
   isSpinning(): boolean {
     return this.spinner && this.spinner.isSpinning;
+  }
+
+  /**
+   * Convert color (hex or name) to Ora-compatible color name
+   * Ora only supports named colors, not hex
+   */
+  private getOraColor(color?: string): string {
+    if (!color) {
+      return 'cyan';
+    }
+
+    // If it's a hex color, map to closest named color for Ora spinner
+    if (color.startsWith('#')) {
+      // Map hex colors to Ora-compatible named colors
+      const hexMap: Record<string, string> = {
+        '#D97757': 'yellow',  // Claude - coral -> yellow
+        '#4285F4': 'blue',     // Gemini - blue
+        '#10A37F': 'green',    // Codex - green
+        '#9B59B6': 'magenta'   // Maestro - purple -> magenta
+      };
+      return hexMap[color] || 'cyan';
+    }
+
+    // Named color - pass through
+    return color;
   }
 
   /**
