@@ -18,7 +18,7 @@ export class Maestro {
   constructor(primaryAgentName, config = {}) {
     this.primaryAgent = getAgent(primaryAgentName);
     this.config = {
-      delegationTimeout: config.delegationTimeout || 60000,
+      delegationTimeout: config.delegationTimeout || 180000,  // 3 minutes for complex tasks
       maxDelegationDepth: config.maxDelegationDepth || 3,
       showSpinner: config.showSpinner !== false,
       verbose: config.verbose || false
@@ -221,8 +221,10 @@ export class Maestro {
               }
             }
           } else if (spinner) {
-            // Non-streaming mode: use text parsing
-            const status = this.extractAgentStatus(output);
+            // Non-streaming mode: use text parsing with tool detection
+            const toolStatus = this.extractToolUsageFromText(output);
+            const status = toolStatus || this.extractAgentStatus(output);
+
             if (status && status !== lastStatus) {
               this.detailedLogger.logStatusUpdate(agentId, status, 'fallback');
               spinner.text = `${this.primaryAgent.displayName}: ${status}`;
@@ -237,8 +239,13 @@ export class Maestro {
               try {
                 const delegation = await this.processDelegation(line);
                 delegations.push(delegation);
+                Logger.maestro(`Delegation completed: ${delegation.toAgent}`);
               } catch (error) {
-                Logger.error(`Delegation failed: ${error.message}`);
+                // Log silently to detailed logger, don't spam console
+                this.detailedLogger.logError(error, {
+                  line: line.substring(0, 100),
+                  context: 'delegation_parsing'
+                });
               }
             }
           }
@@ -422,6 +429,43 @@ export class Maestro {
         return event.text;
       }
     }
+    return null;
+  }
+
+  /**
+   * Extract tool usage from text output (for dynamic spinner)
+   */
+  extractToolUsageFromText(output) {
+    // Codex tool patterns (non-JSONL fallback)
+    if (output.match(/Reading\s+(?:file:\s*)?([^\n]+)/i)) {
+      const match = output.match(/Reading\s+(?:file:\s*)?([^\n]+)/i);
+      const file = match[1].trim().split(' ')[0]; // First word is filename
+      return `reading: ${file.substring(0, 40)}`;
+    }
+
+    if (output.match(/Writing\s+(?:file:\s*)?([^\n]+)/i)) {
+      const match = output.match(/Writing\s+(?:file:\s*)?([^\n]+)/i);
+      const file = match[1].trim().split(' ')[0];
+      return `writing: ${file.substring(0, 40)}`;
+    }
+
+    if (output.match(/Using\s+(\w+)\s+tool/i)) {
+      const match = output.match(/Using\s+(\w+)\s+tool/i);
+      return `using ${match[1].toLowerCase()} tool`;
+    }
+
+    if (output.match(/Editing\s+(?:file:\s*)?([^\n]+)/i)) {
+      const match = output.match(/Editing\s+(?:file:\s*)?([^\n]+)/i);
+      const file = match[1].trim().split(' ')[0];
+      return `editing: ${file.substring(0, 40)}`;
+    }
+
+    if (output.match(/Executing:\s*([^\n]+)/i)) {
+      const match = output.match(/Executing:\s*([^\n]+)/i);
+      const cmd = match[1].substring(0, 40);
+      return `executing: ${cmd}`;
+    }
+
     return null;
   }
 
