@@ -107,8 +107,14 @@ export class Spinner {
       return text;
     }
 
+    // Support hex colors (e.g., '#D97757')
+    if (color.startsWith('#')) {
+      return chalk.hex(color)(text);
+    }
+
+    // Support named colors (e.g., 'cyan', 'magenta')
     const chalkColor = (chalk as any)[color];
-    return chalkColor ? chalkColor(text) : text;
+    return chalkColor && typeof chalkColor === 'function' ? chalkColor(text) : text;
   }
 
   /**
