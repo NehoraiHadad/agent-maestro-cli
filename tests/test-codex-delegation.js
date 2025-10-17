@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 
 /**
- * Test the delegation handler directly
+ * Test Codex delegation with exec subcommand
  */
 
-import { DelegationHandler } from './src/core/delegation-handler.js';
-import { Logger } from './src/utils/logger.js';
+import { DelegationHandler } from '../src/core/delegation-handler.js';
+import { Logger } from '../src/utils/logger.js';
 
-async function testDelegation() {
-  Logger.header('Testing Delegation Handler');
+async function testCodexDelegation() {
+  Logger.header('Testing Codex Delegation');
 
   const handler = new DelegationHandler({
     timeout: 30000,
@@ -17,14 +17,14 @@ async function testDelegation() {
   });
 
   try {
-    Logger.info('Testing delegation to Gemini...');
-    Logger.info('Prompt: "What is 5 + 3? Answer with just the number."');
+    Logger.info('Testing delegation to Codex...');
+    Logger.info('Prompt: "What is 12 + 15? Answer with just the number."');
     Logger.separator();
 
     const result = await handler.execute(
-      'gemini',
-      'What is 5 + 3? Answer with just the number.',
-      { timeout: 15000 }
+      'codex',
+      'What is 12 + 15? Answer with just the number.',
+      { timeout: 30000 }
     );
 
     Logger.separator();
@@ -36,7 +36,7 @@ async function testDelegation() {
     handler.cleanup();
 
     Logger.separator();
-    Logger.success('Test completed successfully!');
+    Logger.success('Codex delegation test passed!');
     process.exit(0);
 
   } catch (error) {
@@ -47,4 +47,4 @@ async function testDelegation() {
   }
 }
 
-testDelegation();
+testCodexDelegation();

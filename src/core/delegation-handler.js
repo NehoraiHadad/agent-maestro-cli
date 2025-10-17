@@ -80,10 +80,17 @@ export class DelegationHandler {
       let result = '';
       let timeoutId;
 
-      // Spawn process with -p flag for non-interactive execution
+      // Spawn process with appropriate non-interactive method
       try {
-        const promptFlag = agent.flags?.prompt || '-p';
-        const args = [promptFlag, prompt];
+        const promptMethod = agent.flags?.prompt || '-p';
+        let args;
+
+        // Codex uses 'exec' subcommand, others use '-p' flag
+        if (promptMethod === 'exec') {
+          args = ['exec', prompt];
+        } else {
+          args = [promptMethod, prompt];
+        }
 
         this.ptyManager.spawn(id, agent.command, args);
 

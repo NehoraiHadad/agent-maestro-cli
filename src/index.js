@@ -6,7 +6,8 @@
 
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { Maestro } from './core/maestro.js';
+import { Maestro } from './core/maestro-message.js';
+import { MaestroCLI } from './core/maestro-cli.js';
 import { showAgentMenu } from './cli/interactive-menu.js';
 import { getAgent, checkAgentAvailability, getAllAgents } from './agents/agent-config.js';
 import { Logger } from './utils/logger.js';
@@ -49,7 +50,7 @@ program
         Logger.setLevel(Logger.levels.DEBUG);
       }
 
-      // Create and start Maestro
+      // Create Maestro
       const maestro = new Maestro(agentName, {
         delegationTimeout: parseInt(options.timeout),
         maxDelegationDepth: parseInt(options.maxDepth),
@@ -58,6 +59,10 @@ program
       });
 
       await maestro.start();
+
+      // Create and start CLI
+      const cli = new MaestroCLI(maestro);
+      await cli.start();
     } catch (error) {
       Logger.error(error.message);
 

@@ -4,8 +4,8 @@
  * Comprehensive test of the full delegation flow
  */
 
-import { DelegationHandler } from './src/core/delegation-handler.js';
-import { Logger } from './src/utils/logger.js';
+import { DelegationHandler } from '../src/core/delegation-handler.js';
+import { Logger } from '../src/utils/logger.js';
 
 async function testFullFlow() {
   Logger.header('🎭 Full Delegation Flow Test');
@@ -37,7 +37,7 @@ async function testFullFlow() {
     // Test 2: Check if Claude is available
     console.log('\n\n📝 Test 2: Checking Claude availability');
     try {
-      const { checkAgentAvailability } = await import('./src/agents/agent-config.js');
+      const { checkAgentAvailability } = await import('../src/agents/agent-config.js');
       const claudeAvailable = await checkAgentAvailability('claude');
 
       if (claudeAvailable) {

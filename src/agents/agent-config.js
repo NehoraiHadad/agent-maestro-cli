@@ -63,7 +63,8 @@ export const AGENTS = {
       'Multiple autonomy modes'
     ],
     flags: {
-      prompt: '-p',
+      // Codex uses 'exec' subcommand for non-interactive mode
+      prompt: 'exec',  // Not a flag, but a subcommand
       json: '--output-format json',
       stream: '--output-format stream-json',
       mode: {

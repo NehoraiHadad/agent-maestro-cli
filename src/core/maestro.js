@@ -50,13 +50,27 @@ export class Maestro {
     this.showWelcome();
 
     try {
-      // Spawn primary agent
+      // Spawn primary agent with proper terminal configuration
+      const ptyEnv = {
+        ...process.env,
+        TERM: process.env.TERM || 'xterm-256color',
+        COLORTERM: 'truecolor',
+        // Ensure the agent knows it's in a terminal
+        FORCE_COLOR: '1',
+        CLICOLOR_FORCE: '1',
+        // Prevent issues with cursor position queries
+        NO_COLOR_CURSOR: '1',
+        // Some CLIs check this to avoid complex terminal queries
+        CI: undefined,  // Unset CI mode if it was set
+        TERM_PROGRAM: 'maestro'
+      };
+
       this.primaryProcess = pty.spawn(this.primaryAgent.command, [], {
-        name: 'xterm-color',
+        name: process.env.TERM || 'xterm-256color',
         cols: process.stdout.columns || 80,
         rows: process.stdout.rows || 30,
         cwd: process.cwd(),
-        env: process.env
+        env: ptyEnv
       });
 
       this.isRunning = true;
@@ -127,17 +141,31 @@ export class Maestro {
    * Handle output from primary agent
    */
   async handleOutput(data) {
+    // Check for DSR (Device Status Report) query and respond
+    // Codex sends \x1b[6n to query cursor position
+    if (data.includes('\x1b[6n')) {
+      // Respond with cursor position (row 1, col 1)
+      this.primaryProcess.write('\x1b[1;1R');
+      // Remove DSR query from data before passing through
+      data = data.replace(/\x1b\[6n/g, '');
+    }
+
+    // Always pass through output immediately for interactive responsiveness
+    process.stdout.write(data);
+
+    // Check for delegation requests in the data
     this.buffer += data;
+
+    // Only process complete lines for delegation detection
     const lines = this.buffer.split('\n');
     this.buffer = lines.pop(); // Keep last incomplete line in buffer
 
     for (const line of lines) {
-      // Check for delegation request
+      // Check for delegation request (but output was already passed through)
       if (isDelegationRequest(line)) {
+        // Clear the delegation line from terminal (it was already written)
+        process.stdout.write('\r\x1b[K'); // Clear current line
         await this.processDelegation(line);
-      } else {
-        // Pass through to stdout
-        process.stdout.write(line + '\n');
       }
     }
   }
