@@ -181,7 +181,14 @@ export class Maestro {
    * Setup stdin handling
    */
   setupStdin() {
-    process.stdin.setRawMode(true);
+    // Check if stdin is a TTY before setting raw mode
+    if (process.stdin.isTTY) {
+      process.stdin.setRawMode(true);
+      Logger.debug('Raw mode enabled for stdin');
+    } else {
+      Logger.debug('Stdin is not a TTY, using line mode');
+    }
+
     process.stdin.setEncoding('utf8');
 
     process.stdin.on('data', (data) => {
