@@ -1,5 +1,38 @@
+# Dependencies
 node_modules/
-*.log
-.DS_Store
-dist/
+package-lock.json
+.claude
 
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Test coverage
+coverage/
+
+# Build
+dist/
+build/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+
+**/*.code-workspace

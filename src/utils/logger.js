@@ -1,27 +1,88 @@
+/**
+ * Logging utilities with colors and formatting
+ */
+
 import chalk from 'chalk';
 
-/**
- * Logging utilities for Maestro
- */
 export class Logger {
-  static info(message) {
-    console.log(chalk.blue('[Maestro]'), message);
+  static levels = {
+    DEBUG: 0,
+    INFO: 1,
+    SUCCESS: 2,
+    WARN: 3,
+    ERROR: 4
+  };
+
+  static currentLevel = Logger.levels.INFO;
+
+  static setLevel(level) {
+    Logger.currentLevel = level;
   }
 
-  static success(message) {
-    console.log(chalk.green('[Maestro]'), message);
+  static debug(message, ...args) {
+    if (Logger.currentLevel <= Logger.levels.DEBUG) {
+      console.log(chalk.gray(`[DEBUG] ${message}`), ...args);
+    }
   }
 
-  static error(message) {
-    console.error(chalk.red('[Maestro Error]'), message);
+  static info(message, ...args) {
+    if (Logger.currentLevel <= Logger.levels.INFO) {
+      console.log(chalk.blue(`ℹ ${message}`), ...args);
+    }
   }
 
-  static warn(message) {
-    console.warn(chalk.yellow('[Maestro Warning]'), message);
+  static success(message, ...args) {
+    if (Logger.currentLevel <= Logger.levels.SUCCESS) {
+      console.log(chalk.green(`✓ ${message}`), ...args);
+    }
   }
 
-  static delegation(agent, action) {
-    console.log(chalk.magenta('[Maestro Delegation]'), `${action} → ${agent}`);
+  static warn(message, ...args) {
+    if (Logger.currentLevel <= Logger.levels.WARN) {
+      console.log(chalk.yellow(`⚠ ${message}`), ...args);
+    }
+  }
+
+  static error(message, ...args) {
+    if (Logger.currentLevel <= Logger.levels.ERROR) {
+      console.error(chalk.red(`✗ ${message}`), ...args);
+    }
+  }
+
+  static maestro(message, ...args) {
+    console.log(chalk.magenta.bold(`🎭 [Maestro] ${message}`), ...args);
+  }
+
+  static delegation(agentName, message, ...args) {
+    console.log(chalk.cyan(`  ↳ [${agentName}] ${message}`), ...args);
+  }
+
+  static agent(agentName, message, color = 'white') {
+    console.log(chalk[color](`[${agentName}] ${message}`));
+  }
+
+  static separator(char = '─', length = 60) {
+    console.log(chalk.gray(char.repeat(length)));
+  }
+
+  static header(text) {
+    console.log('');
+    Logger.separator('═');
+    console.log(chalk.bold.white(`  ${text}`));
+    Logger.separator('═');
+    console.log('');
+  }
+
+  static box(text, color = 'white') {
+    const lines = text.split('\n');
+    const maxLength = Math.max(...lines.map(l => l.length));
+
+    console.log(chalk[color]('┌' + '─'.repeat(maxLength + 2) + '┐'));
+    lines.forEach(line => {
+      console.log(chalk[color]('│ ' + line.padEnd(maxLength) + ' │'));
+    });
+    console.log(chalk[color]('└' + '─'.repeat(maxLength + 2) + '┘'));
   }
 }
 
+export default Logger;

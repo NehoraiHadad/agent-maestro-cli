@@ -1,52 +1,146 @@
 #!/usr/bin/env node
 
+/**
+ * AgentMaestro CLI Entry Point
+ */
+
 import { Command } from 'commander';
 import chalk from 'chalk';
-import { AGENTS } from './config.js';
-import { MaestroCLI } from './core/maestro-cli.js';
+import { Maestro } from './core/maestro.js';
+import { showAgentMenu } from './cli/interactive-menu.js';
+import { getAgent, checkAgentAvailability, getAllAgents } from './agents/agent-config.js';
 import { Logger } from './utils/logger.js';
+import { AgentNotAvailableError } from './core/errors.js';
 
 const program = new Command();
 
 program
   .name('maestro')
-  .description('CLI wrapper for collaborative AI agents')
-  .version('1.0.0')
-  .option('-a, --agent <name>', 'Primary agent (claude|gemini|codex)')
-  .action((options) => {
-    if (!options.agent) {
-      showAgentSelection();
-      return;
-    }
+  .description('🎭 Multi-agent AI orchestration CLI')
+  .version('1.0.0');
 
-    const primaryAgent = AGENTS[options.agent.toLowerCase()];
-    if (!primaryAgent) {
-      Logger.error(`Unknown agent: ${options.agent}`);
-      showAgentSelection();
+// Main command - agent selection
+program
+  .option('-a, --agent <name>', 'specify primary agent (claude, gemini, codex)')
+  .option('-v, --verbose', 'enable verbose logging')
+  .option('--no-spinner', 'disable loading spinners')
+  .option('--timeout <ms>', 'delegation timeout in milliseconds', '60000')
+  .option('--max-depth <n>', 'maximum delegation depth', '3')
+  .action(async (options) => {
+    try {
+      let agentName = options.agent;
+
+      // If no agent specified, show interactive menu
+      if (!agentName) {
+        agentName = await showAgentMenu();
+      }
+
+      // Validate agent
+      const agent = getAgent(agentName);
+
+      // Check availability
+      const available = await checkAgentAvailability(agentName);
+      if (!available) {
+        throw new AgentNotAvailableError(agentName, agent.packageName);
+      }
+
+      // Set verbose logging
+      if (options.verbose) {
+        Logger.setLevel(Logger.levels.DEBUG);
+      }
+
+      // Create and start Maestro
+      const maestro = new Maestro(agentName, {
+        delegationTimeout: parseInt(options.timeout),
+        maxDelegationDepth: parseInt(options.maxDepth),
+        showSpinner: options.spinner,
+        verbose: options.verbose
+      });
+
+      await maestro.start();
+    } catch (error) {
+      Logger.error(error.message);
+
+      if (error instanceof AgentNotAvailableError) {
+        console.log('');
+        console.log(chalk.yellow('Install with:'));
+        console.log(`  npm install -g ${error.packageName}`);
+      }
+
       process.exit(1);
     }
-
-    startMaestro(primaryAgent);
   });
 
-program.parse();
+// List command - show available agents
+program
+  .command('list')
+  .description('list all available agents')
+  .action(async () => {
+    Logger.header('🎭 Available Agents');
 
-function showAgentSelection() {
-  console.log(chalk.cyan.bold('\n🎭 Agent Maestro - Collaborative AI CLI\n'));
-  console.log('Available agents:\n');
-  
-  Object.values(AGENTS).forEach(agent => {
-    console.log(chalk.yellow(`  ${agent.name.padEnd(10)}`), chalk.gray(agent.description));
+    const agents = getAllAgents();
+
+    for (const agent of agents) {
+      const available = await checkAgentAvailability(agent.name);
+      const status = available ? chalk.green('✓ installed') : chalk.red('✗ not installed');
+
+      console.log('');
+      console.log(chalk.bold(agent.displayName) + ` ${status}`);
+      console.log(`  ${chalk.gray(agent.description)}`);
+      console.log(`  ${chalk.cyan('Package:')} ${agent.packageName}`);
+      console.log(`  ${chalk.cyan('Command:')} ${agent.command}`);
+    }
+
+    console.log('');
   });
 
-  console.log(chalk.cyan('\nUsage:'));
-  console.log(chalk.white('  maestro --agent <name>\n'));
-  console.log(chalk.gray('Example:'));
-  console.log(chalk.white('  maestro --agent gemini\n'));
-}
+// Info command - show info about specific agent
+program
+  .command('info <agent>')
+  .description('show information about a specific agent')
+  .action(async (agentName) => {
+    try {
+      const agent = getAgent(agentName);
+      const available = await checkAgentAvailability(agentName);
 
-function startMaestro(primaryAgent) {
-  const maestro = new MaestroCLI(primaryAgent, AGENTS);
-  maestro.start();
-}
+      Logger.header(`🎭 ${agent.displayName}`);
 
+      console.log(chalk.bold('Description:'));
+      console.log(`  ${agent.description}`);
+      console.log('');
+
+      console.log(chalk.bold('Status:'));
+      console.log(`  ${available ? chalk.green('✓ Installed') : chalk.red('✗ Not installed')}`);
+      console.log('');
+
+      console.log(chalk.bold('Package:'));
+      console.log(`  ${agent.packageName}`);
+      console.log('');
+
+      console.log(chalk.bold('Command:'));
+      console.log(`  ${agent.command}`);
+      console.log('');
+
+      console.log(chalk.bold('Capabilities:'));
+      agent.capabilities.forEach(cap => {
+        console.log(`  • ${cap}`);
+      });
+      console.log('');
+
+      console.log(chalk.bold('Authentication:'));
+      console.log(`  ${agent.authType}`);
+      console.log('');
+
+      if (!available) {
+        console.log(chalk.yellow('Installation:'));
+        console.log(`  npm install -g ${agent.packageName}`);
+        console.log('');
+      }
+    } catch (error) {
+      Logger.error(error.message);
+      process.exit(1);
+    }
+  });
+
+// Parse arguments
+program.parse(process.argv);
