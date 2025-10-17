@@ -295,6 +295,28 @@ export class MaestroCLI {
     console.log('');
     Logger.info('Shutting down Maestro...');
 
+    // Auto-save conversation if there were messages
+    const stats = this.maestro.conversationManager.getSummary();
+    if (stats.totalMessages > 0) {
+      try {
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `logs/conversation-${timestamp}.json`;
+
+        // Ensure logs directory exists
+        const fs = await import('fs/promises');
+        try {
+          await fs.mkdir('logs', { recursive: true });
+        } catch (e) {
+          // Directory already exists, ignore
+        }
+
+        await this.maestro.conversationManager.saveToFile(filename);
+        Logger.info(`Conversation saved to: ${filename}`);
+      } catch (error) {
+        Logger.warn(`Could not save conversation: ${error.message}`);
+      }
+    }
+
     // Cleanup
     if (this.rl) {
       this.rl.close();

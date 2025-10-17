@@ -66,16 +66,16 @@ export class Maestro {
     // Show spinner
     const spinner = this.config.showSpinner ? new SmartSpinner() : null;
     if (spinner) {
-      spinner.start(`${this.primaryAgent.displayName} is thinking...`, 'magenta');
+      spinner.start(`${this.primaryAgent.displayName}: thinking...`, 'magenta');
     }
 
     try {
-      // Execute primary agent
-      const response = await this.executePrimaryAgent(userMessage);
+      // Execute primary agent (pass spinner for dynamic updates)
+      const response = await this.executePrimaryAgent(userMessage, spinner);
 
       // Stop spinner
       if (spinner) {
-        spinner.succeed(`${this.primaryAgent.displayName} responded`);
+        spinner.succeed(`${this.primaryAgent.displayName}: completed`);
       }
 
       // Add assistant message to conversation
@@ -94,29 +94,99 @@ export class Maestro {
   /**
    * Execute primary agent with message
    */
-  async executePrimaryAgent(message) {
+  async executePrimaryAgent(message, spinner = null) {
     return new Promise((resolve, reject) => {
       const agentId = `primary-${Date.now()}`;
       let output = '';
+      let buffer = '';  // Buffer for incomplete JSON lines
       const delegations = [];
+      let lastStatus = '';
+      let finalResponse = '';  // Store the actual response text
 
       try {
-        // Determine how to invoke the agent
+        // Determine how to invoke the agent with streaming
         const promptMethod = this.primaryAgent.flags?.prompt || '-p';
+        const streamFlags = this.primaryAgent.flags?.stream;
+
         let args;
 
         if (promptMethod === 'exec') {
+          // Codex: codex exec "message" --json
           args = ['exec', message];
+          if (streamFlags) {
+            args.push(...(Array.isArray(streamFlags) ? streamFlags : [streamFlags]));
+          }
+        } else if (promptMethod === '--print') {
+          // Claude: claude --print "message" --output-format stream-json --verbose
+          args = [promptMethod, message];
+          if (streamFlags) {
+            args.push(...(Array.isArray(streamFlags) ? streamFlags : [streamFlags]));
+          }
         } else {
+          // Gemini: gemini -p "message" (no streaming support)
           args = [promptMethod, message];
         }
 
         // Spawn agent process
         this.ptyManager.spawn(agentId, this.primaryAgent.command, args);
 
-        // Collect output
+        // Collect output and update spinner
         this.ptyManager.onData(agentId, async (data) => {
           output += data;
+          buffer += data;
+
+          // Try to parse JSONL events for streaming updates
+          if (streamFlags && spinner) {
+            const lines = buffer.split('\n');
+            // Keep the last incomplete line in buffer
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+              if (line.trim()) {
+                try {
+                  const event = JSON.parse(line);
+
+                  // Debug: log the event type
+                  if (this.config.verbose) {
+                    Logger.debug(`Event: ${event.type}`);
+                  }
+
+                  const status = this.extractStatusFromEvent(event, this.primaryAgent.name);
+
+                  if (status) {
+                    if (this.config.verbose) {
+                      Logger.debug(`Status update: ${status}`);
+                    }
+                    spinner.text = `${this.primaryAgent.displayName}: ${status}`;
+                    lastStatus = status;
+                  }
+
+                  // Extract final response from events
+                  const response = this.extractResponseFromEvent(event, this.primaryAgent.name);
+                  if (response) {
+                    finalResponse = response;
+                  }
+                } catch (error) {
+                  // Not valid JSON, might be non-streaming output
+                  // Fall back to text parsing
+                  if (!streamFlags) {
+                    const status = this.extractAgentStatus(output);
+                    if (status && status !== lastStatus) {
+                      spinner.text = `${this.primaryAgent.displayName}: ${status}`;
+                      lastStatus = status;
+                    }
+                  }
+                }
+              }
+            }
+          } else if (spinner) {
+            // Non-streaming mode: use text parsing
+            const status = this.extractAgentStatus(output);
+            if (status && status !== lastStatus) {
+              spinner.text = `${this.primaryAgent.displayName}: ${status}`;
+              lastStatus = status;
+            }
+          }
 
           // Check for delegation requests in real-time
           const lines = output.split('\n');
@@ -135,12 +205,12 @@ export class Maestro {
         // Handle process exit
         this.ptyManager.onExit(agentId, ({ exitCode }) => {
           if (exitCode === 0 || output.length > 0) {
-            // Clean output
-            const cleanedOutput = this.cleanOutput(output);
+            // Use finalResponse from streaming if available, otherwise clean output
+            const responseContent = finalResponse || this.cleanOutput(output);
 
             resolve({
               agent: this.primaryAgent.displayName,
-              content: cleanedOutput,
+              content: responseContent,
               delegations,
               exitCode
             });
@@ -207,6 +277,106 @@ export class Maestro {
   }
 
   /**
+   * Extract status from streaming JSONL event
+   */
+  extractStatusFromEvent(event, agentName) {
+    if (agentName === 'codex') {
+      // Codex events: {"type":"item.completed","item":{"type":"reasoning","text":"..."}}
+      if (event.type === 'turn.started') {
+        return 'starting...';
+      }
+      if (event.type === 'item.completed' && event.item) {
+        if (event.item.type === 'reasoning') {
+          const text = event.item.text || '';
+          return `thinking: ${text.substring(0, 50)}${text.length > 50 ? '...' : ''}`;
+        }
+        if (event.item.type === 'tool_call') {
+          return `using tool: ${event.item.name || 'unknown'}`;
+        }
+        if (event.item.type === 'agent_message') {
+          return 'responding...';
+        }
+      }
+      if (event.type === 'turn.completed') {
+        return 'completed';
+      }
+    } else if (agentName === 'claude') {
+      // Claude events: {"type":"assistant","message":{...}}
+      if (event.type === 'system' && event.subtype === 'init') {
+        return 'initializing...';
+      }
+      if (event.type === 'assistant' && event.message) {
+        return 'responding...';
+      }
+      if (event.type === 'result') {
+        return 'completed';
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Extract final response from streaming event
+   */
+  extractResponseFromEvent(event, agentName) {
+    if (agentName === 'codex') {
+      // Codex: extract text from agent_message item
+      if (event.type === 'item.completed' && event.item?.type === 'agent_message') {
+        return event.item.text || '';
+      }
+    } else if (agentName === 'claude') {
+      // Claude: extract content from assistant message
+      if (event.type === 'assistant' && event.message?.content) {
+        const content = event.message.content;
+        if (Array.isArray(content)) {
+          return content.map(c => c.text || '').join('');
+        }
+        return content.text || content;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Extract agent status from output for spinner (fallback for non-streaming)
+   */
+  extractAgentStatus(output) {
+    // Codex patterns
+    if (output.includes('thinking') && output.includes('user')) {
+      const thinkingMatch = output.match(/thinking\n([^\n]+)/);
+      if (thinkingMatch) {
+        return `thinking: ${thinkingMatch[1].substring(0, 50)}...`;
+      }
+      return 'thinking...';
+    }
+
+    // Tool usage patterns
+    if (output.match(/Using tool:|Tool:|Calling:/i)) {
+      const toolMatch = output.match(/(?:Using tool|Tool|Calling):\s*([^\n]+)/i);
+      if (toolMatch) {
+        return `using tool: ${toolMatch[1].substring(0, 40)}`;
+      }
+      return 'using tools...';
+    }
+
+    // Reading/writing files
+    if (output.match(/Reading|Writing|Editing/i)) {
+      const fileMatch = output.match(/(Reading|Writing|Editing)[^\n]*/i);
+      if (fileMatch) {
+        return fileMatch[0].substring(0, 50).toLowerCase();
+      }
+    }
+
+    // Gemini specific
+    if (output.includes('Connecting to MCP')) {
+      return 'connecting to MCP servers...';
+    }
+
+    // Default
+    return 'thinking...';
+  }
+
+  /**
    * Clean output from ANSI codes and formatting
    */
   cleanOutput(output) {
@@ -219,14 +389,18 @@ export class Maestro {
     // Remove delegation protocol lines
     cleaned = cleaned.replace(/MAESTRO_DELEGATE::[^\n]*/g, '');
 
-    // Remove Codex metadata header
+    // Remove Codex metadata header and footer
     if (cleaned.includes('OpenAI Codex')) {
-      // Remove everything from "OpenAI Codex" until "codex" answer line
-      cleaned = cleaned.replace(/OpenAI Codex.*?(?=\ncodex\n)/s, '');
-      // Remove the "codex" label line
-      cleaned = cleaned.replace(/\ncodex\n/, '\n');
-      // Remove "tokens used" footer
-      cleaned = cleaned.replace(/\ntokens used\n[\d,]+/, '');
+      // Remove header: everything from "OpenAI Codex" until actual answer
+      cleaned = cleaned.replace(/OpenAI Codex v[\d.]+[^\n]*\n-+\n[\s\S]*?\n-+\nuser\n[^\n]+\n\nthinking\n[^\n]+\ncodex\n/g, '');
+
+      // Remove footer: "tokens used" line and number
+      cleaned = cleaned.replace(/\ntokens used\n[\d,]+\n?/g, '');
+
+      // Remove any remaining "codex" label at start
+      if (cleaned.startsWith('codex\n')) {
+        cleaned = cleaned.substring(6);
+      }
     }
 
     // Remove Gemini "Loaded cached credentials" line

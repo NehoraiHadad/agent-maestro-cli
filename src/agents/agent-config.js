@@ -17,9 +17,9 @@ export const AGENTS = {
       'MCP integration'
     ],
     flags: {
-      prompt: '-p',
-      json: '--output-format json',
-      stream: '--output-format stream-json'
+      prompt: '--print',
+      json: ['--output-format', 'json'],
+      stream: ['--output-format', 'stream-json', '--verbose']  // Combined with verbose
     },
     requiresAuth: true,
     authType: 'Claude Pro/Max subscription',
@@ -41,8 +41,8 @@ export const AGENTS = {
     ],
     flags: {
       prompt: '-p',
-      json: '--output-format json',
-      stream: '--output-format stream-json'
+      json: '--output-format json'
+      // Note: Gemini CLI does not support real streaming, only batch JSON
     },
     requiresAuth: true,
     authType: 'Google account / AI Studio key',
@@ -65,8 +65,7 @@ export const AGENTS = {
     flags: {
       // Codex uses 'exec' subcommand for non-interactive mode
       prompt: 'exec',  // Not a flag, but a subcommand
-      json: '--output-format json',
-      stream: '--output-format stream-json',
+      stream: ['--json'],  // Streaming JSONL output (as array for consistency)
       mode: {
         suggest: '--mode suggest',
         autoEdit: '--mode auto-edit',
