@@ -13,3 +13,6 @@ export * from './logger/FileLogger.js';
 
 // Menu components
 export * from './menu/InteractiveMenu.js';
+
+// Interactive session
+export * from './InteractiveSession.js';

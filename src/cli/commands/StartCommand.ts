@@ -6,7 +6,7 @@
 import { Command } from 'commander';
 import { Maestro } from '../../features/orchestration/index.js';
 import { AgentRepository } from '../../domain/index.js';
-import { InteractiveMenu } from '../../features/ui/index.js';
+import { InteractiveMenu, InteractiveSession } from '../../features/ui/index.js';
 import { ConsoleLogger } from '../../features/ui/index.js';
 import type { AgentName } from '../../shared/types/index.js';
 import { AgentNotFoundError } from '../../shared/errors/index.js';
@@ -70,6 +70,10 @@ export class StartCommand {
       this.logger.header(`Starting AgentMaestro with ${agentName}`);
       const maestro = new Maestro(agentName as AgentName, config);
       await maestro.start();
+
+      // Start interactive session
+      const session = new InteractiveSession(maestro);
+      await session.start();
 
     } catch (error) {
       if (error instanceof AgentNotFoundError) {
