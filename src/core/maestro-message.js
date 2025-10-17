@@ -365,6 +365,47 @@ export class Maestro {
       if (event.type === 'turn.started') {
         return 'starting...';
       }
+
+      // Handle item.started for command_execution (tool usage in progress)
+      if (event.type === 'item.started' && event.item) {
+        if (event.item.type === 'command_execution' && event.item.command) {
+          const cmd = event.item.command;
+          // Extract meaningful action from command
+
+          // Check for sed (reading files)
+          if (cmd.includes('sed ')) {
+            const fileMatch = cmd.match(/\s([^\s"']+\.(?:md|js|json|ts|tsx|jsx|py|java|go|rs|c|cpp|h|txt|yaml|yml|xml|html|css|sh))/i);
+            if (fileMatch) {
+              const file = fileMatch[1].split('/').pop();  // Get filename only
+              return `reading: ${file.substring(0, 40)}`;
+            }
+            return 'reading file...';
+          }
+
+          // Check for cat, head, tail (reading files)
+          if (cmd.includes('cat ') || cmd.includes('head ') || cmd.includes('tail ')) {
+            const fileMatch = cmd.match(/(?:cat|head|tail)\s+([^\s'"]+)/);
+            if (fileMatch) {
+              const file = fileMatch[1].split('/').pop();  // Get filename only
+              return `reading: ${file.substring(0, 40)}`;
+            }
+            return 'reading file...';
+          }
+
+          // Check for grep, find, ls (searching)
+          if (cmd.includes('grep ') || cmd.includes('find ') || cmd.includes('ls ')) {
+            return 'searching files...';
+          }
+
+          // Check for editors (editing)
+          if (cmd.includes('vim ') || cmd.includes('nano ') || cmd.includes('edit ')) {
+            return 'editing file...';
+          }
+
+          return `executing: ${cmd.substring(0, 40)}`;
+        }
+      }
+
       if (event.type === 'item.completed' && event.item) {
         if (event.item.type === 'reasoning') {
           const text = event.item.text || '';
