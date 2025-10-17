@@ -87,12 +87,22 @@ export class MaestroCLI {
     try {
       console.log(''); // Empty line before response
 
+      // Pause readline to allow spinner to render properly
+      this.rl.pause();
+
       const response = await this.maestro.sendMessage(input);
+
+      // Resume readline after spinner completes
+      this.rl.resume();
 
       // Display response
       this.displayResponse(response);
 
     } catch (error) {
+      // Resume readline on error too
+      if (this.rl) {
+        this.rl.resume();
+      }
       Logger.error(`Error: ${error.message}`);
     }
 

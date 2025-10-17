@@ -208,14 +208,14 @@ export class Maestro {
 
                   const status = this.extractStatusFromEvent(event, this.primaryAgent.name);
 
-                  if (status) {
+                  if (status && status !== lastStatus) {
                     // Log status update
                     this.detailedLogger.logStatusUpdate(agentId, status, 'streaming');
 
                     if (this.config.verbose) {
                       Logger.debug(`Status update: ${status}`);
                     }
-                    spinner.text = `${this.primaryAgent.displayName}: ${status}`;
+                    spinner.update(`${this.primaryAgent.displayName}: ${status}`, 'cyan');
                     lastStatus = status;
                   }
 
@@ -231,7 +231,7 @@ export class Maestro {
                     const status = this.extractAgentStatus(output);
                     if (status && status !== lastStatus) {
                       this.detailedLogger.logStatusUpdate(agentId, status, 'fallback');
-                      spinner.text = `${this.primaryAgent.displayName}: ${status}`;
+                      spinner.update(`${this.primaryAgent.displayName}: ${status}`, 'cyan');
                       lastStatus = status;
                     }
                   }
@@ -245,7 +245,7 @@ export class Maestro {
 
             if (status && status !== lastStatus) {
               this.detailedLogger.logStatusUpdate(agentId, status, 'fallback');
-              spinner.text = `${this.primaryAgent.displayName}: ${status}`;
+              spinner.update(`${this.primaryAgent.displayName}: ${status}`, 'cyan');
               lastStatus = status;
             }
           }
