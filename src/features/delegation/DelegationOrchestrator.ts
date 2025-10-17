@@ -15,6 +15,7 @@ import { AgentSelector } from './AgentSelector.js';
 import { DelegationProtocolParser, type ParsedDelegation } from './DelegationProtocolParser.js';
 import { RequestValidator } from './RequestValidator.js';
 import { ConsoleLogger } from '../ui/index.js';
+import type { SessionManager } from '../orchestration/SessionManager.js';
 
 /**
  * Delegation execution result
@@ -72,6 +73,13 @@ export class DelegationOrchestrator {
     this.validator = new RequestValidator();
     this.agentRepository = new AgentRepository();
     this.logger = new ConsoleLogger();
+  }
+
+  /**
+   * Set the session manager for session continuity support
+   */
+  setSessionManager(sessionManager: SessionManager): void {
+    this.delegator.setSessionManager(sessionManager);
   }
 
   /**

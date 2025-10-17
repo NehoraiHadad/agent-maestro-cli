@@ -9,6 +9,7 @@ import { MaxDelegationDepthError, DelegationError } from '../../shared/errors/in
 import { DEFAULT_INACTIVITY_TIMEOUT, DEFAULT_MAX_DELEGATION_DEPTH } from '../../shared/constants/index.js';
 import { TimeoutManager } from './TimeoutManager.js';
 import { ResultFormatter } from './ResultFormatter.js';
+import type { SessionManager } from '../orchestration/SessionManager.js';
 
 export interface DelegationConfig {
   inactivityTimeout?: number;
@@ -25,6 +26,7 @@ export class Delegator {
   private currentDepth: number;
   private maxDepth: number;
   private inactivityTimeout: number;
+  private sessionManager: SessionManager | null = null;
 
   constructor(config: DelegationConfig = {}) {
     this.ptyManager = new PTYManager();
@@ -33,6 +35,13 @@ export class Delegator {
     this.currentDepth = 0;
     this.maxDepth = config.maxDepth ?? DEFAULT_MAX_DELEGATION_DEPTH;
     this.inactivityTimeout = config.inactivityTimeout ?? DEFAULT_INACTIVITY_TIMEOUT;
+  }
+
+  /**
+   * Set the session manager for session continuity support
+   */
+  setSessionManager(sessionManager: SessionManager): void {
+    this.sessionManager = sessionManager;
   }
 
   /**
@@ -102,7 +111,21 @@ export class Delegator {
           resolve(this.resultFormatter.formatTimeout(agent.name, timeout));
         });
 
-        const args = agent.getExecutionArgs(prompt);
+        // Check if we have an active CLI session for continuation
+        const cliSession = this.sessionManager?.getCliSession(agent.name);
+        const hasActiveSession = cliSession?.isActive ?? false;
+
+        // Get execution arguments with continuation support
+        const args = agent.getExecutionArgs(prompt, {
+          continueSession: hasActiveSession,
+          sessionId: cliSession?.sessionId
+        });
+
+        // Activate session for next time (if this is first interaction)
+        if (!hasActiveSession && this.sessionManager) {
+          this.sessionManager.activateCliSession(agent.name);
+        }
+
         this.ptyManager.spawn(processId, agent.command, args);
         timeoutManager.start();
 

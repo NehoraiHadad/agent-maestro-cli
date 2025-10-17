@@ -47,15 +47,17 @@ export class Maestro {
 
     this.config = new ConfigManager(config);
     this.ptyManager = new PTYManager();
+    this.sessionManager = new SessionManager();
     this.delegationOrchestrator = new DelegationOrchestrator({
       inactivityTimeout: this.config.get('inactivityTimeout'),
       maxDepth: this.config.get('maxDelegationDepth'),
       autoSuggest: true,
       logDelegations: this.config.get('verbose')
     });
+    // Connect session manager to delegation orchestrator for session continuity
+    this.delegationOrchestrator.setSessionManager(this.sessionManager);
     this.streamProcessor = new StreamProcessor();
     this.outputFormatter = new OutputFormatter();
-    this.sessionManager = new SessionManager();
     this.statusUpdater = new StatusUpdater();
   }
 
@@ -148,11 +150,33 @@ export class Maestro {
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
       try {
-        // Get execution arguments with streaming enabled and optional delegation prompt
+        // Check if we have an active CLI session for continuation
+        const cliSession = this.sessionManager.getCliSession(this.primaryAgent.name);
+        const hasActiveSession = cliSession?.isActive ?? false;
+
+        // Debug logging
+        if (this.config.get('verbose')) {
+          console.log(`[DEBUG] Has active session: ${hasActiveSession}`);
+          console.log(`[DEBUG] Session ID: ${cliSession?.sessionId || 'none'}`);
+        }
+
+        // Get execution arguments with streaming and continuation support
         const args = this.primaryAgent.getExecutionArgs(message, {
           stream: true,
-          includeDelegationPrompt: this.config.get('includeDelegationPrompt')
+          includeDelegationPrompt: this.config.get('includeDelegationPrompt'),
+          continueSession: hasActiveSession,
+          sessionId: cliSession?.sessionId
         });
+
+        // Debug logging
+        if (this.config.get('verbose')) {
+          console.log(`[DEBUG] Command args: ${this.primaryAgent.command} ${args.join(' ')}`);
+        }
+
+        // Activate session for next time (if this is first interaction)
+        if (!hasActiveSession) {
+          this.sessionManager.activateCliSession(this.primaryAgent.name);
+        }
 
         // Spawn PTY process
         this.ptyManager.spawn(processId, this.primaryAgent.command, args);
@@ -170,9 +194,24 @@ export class Maestro {
             // Process delegations from complete output
             const delegationResult = await this.delegationOrchestrator.processOutput(output);
 
-            // Use cleaned output (without delegation markers)
+            // Format delegation feedback for agent context
+            const delegationFeedback = this.sessionManager.formatDelegationFeedback(
+              delegationResult.delegations.map(d => ({
+                agent: d.agent,
+                task: d.task,
+                result: d.result,
+                error: d.error,
+                pending: d.pending
+              }))
+            );
+
+            // Combine cleaned output with delegation feedback
+            const outputWithFeedback = delegationResult.cleanOutput +
+              (delegationFeedback ? '\n' + delegationFeedback : '');
+
+            // Format final output
             const cleanedOutput = this.outputFormatter.format(
-              delegationResult.cleanOutput,
+              outputWithFeedback,
               this.primaryAgent.name
             );
 
@@ -189,14 +228,18 @@ export class Maestro {
             this.sessionManager.addAssistantMessage(cleanedOutput, this.primaryAgent.name);
 
             // Add delegation messages to session
+            // Count all delegations (including pending/failed) for statistics
             for (const delegation of delegationResult.delegations) {
-              if (delegation.success && delegation.result) {
-                this.sessionManager.addDelegationMessage(
-                  this.primaryAgent.name,
-                  delegation.agent,
-                  delegation.result
-                );
-              }
+              // For pending/background delegations, use placeholder result
+              const resultContent = delegation.pending
+                ? `[Background delegation to ${delegation.agent} started]`
+                : delegation.result || delegation.error || `[Delegation failed without result]`;
+
+              this.sessionManager.addDelegationMessage(
+                this.primaryAgent.name,
+                delegation.agent,
+                resultContent
+              );
             }
 
             // Resolve with result including delegations

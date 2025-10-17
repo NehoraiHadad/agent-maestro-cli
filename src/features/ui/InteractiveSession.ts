@@ -40,25 +40,33 @@ export class InteractiveSession {
     // Setup line handler
     this.rl.on('line', async (input: string) => {
       const trimmed = input.trim();
+      console.log(`[DEBUG] Line received: "${trimmed}", isActive: ${this.isActive}`);
 
       // Check for exit commands
       if (this.isExitCommand(trimmed)) {
+        console.log('[DEBUG] Exit command detected');
         await this.stop();
         return;
       }
 
       // Skip empty input
       if (!trimmed) {
+        console.log('[DEBUG] Empty input, prompting again');
         this.rl.prompt();
         return;
       }
 
       // Process the message
+      console.log('[DEBUG] Processing message...');
       await this.processMessage(trimmed);
+      console.log('[DEBUG] Message processing complete');
 
       // Prompt for next input
       if (this.isActive) {
+        console.log('[DEBUG] Prompting for next input');
         this.rl.prompt();
+      } else {
+        console.log('[DEBUG] Session no longer active, not prompting');
       }
     });
 
@@ -71,6 +79,7 @@ export class InteractiveSession {
 
     // Handle stream end
     this.rl.on('close', async () => {
+      console.log('[DEBUG] readline close event triggered');
       if (this.isActive) {
         await this.stop();
       }
@@ -82,6 +91,9 @@ export class InteractiveSession {
    */
   private async processMessage(message: string): Promise<void> {
     try {
+      // Pause readline to prevent conflicts with agent output
+      this.rl.pause();
+
       // Send message to Maestro
       const result = await this.maestro.sendMessage(message);
 
@@ -96,12 +108,18 @@ export class InteractiveSession {
         console.log(chalk.cyan('━'.repeat(60)));
       }
 
+      // Resume readline for next input
+      this.rl.resume();
+
     } catch (error) {
       this.logger.error(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}`);
 
       if (error instanceof Error && error.stack) {
         this.logger.debug(error.stack);
       }
+
+      // Resume readline even on error
+      this.rl.resume();
     }
   }
 

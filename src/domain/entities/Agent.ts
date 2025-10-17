@@ -67,7 +67,15 @@ export class Agent implements AgentType {
   /**
    * Get command arguments for execution
    */
-  getExecutionArgs(prompt: string, options?: { stream?: boolean; includeDelegationPrompt?: boolean }): string[] {
+  getExecutionArgs(
+    prompt: string,
+    options?: {
+      stream?: boolean;
+      includeDelegationPrompt?: boolean;
+      continueSession?: boolean;
+      sessionId?: string;
+    }
+  ): string[] {
     const args: string[] = [];
 
     // Optionally prepend delegation system prompt to user prompt
@@ -77,14 +85,47 @@ export class Agent implements AgentType {
       finalPrompt = `${delegationPrompt}\n\n---\n\nUser Request:\n${prompt}`;
     }
 
-    // Handle prompt method
+    // Handle Codex continuation specially (it's a different command structure)
+    if (this.name === 'codex' && options?.continueSession) {
+      // Codex resume: codex resume [--last | <sessionId>] [--stream flags] <prompt>
+      args.push('resume');
+
+      if (options.sessionId) {
+        args.push(options.sessionId);
+      } else {
+        args.push('--last');
+      }
+
+      // Add streaming flags BEFORE prompt for codex resume
+      if (options?.stream && this.flags.stream) {
+        args.push(...this.flags.stream);
+      }
+
+      // Add prompt last
+      args.push(finalPrompt);
+
+      return args;
+    }
+
+    // Handle Claude continuation
+    if (this.name === 'claude' && options?.continueSession) {
+      // Claude: --continue (last session) or --resume <sessionId>
+      if (options.sessionId) {
+        args.push('--resume', options.sessionId);
+      } else {
+        args.push('--continue');
+      }
+    }
+    // Gemini handles sessions automatically via --prompt-interactive
+
+    // Handle prompt method (standard execution)
     if (this.flags.prompt === 'exec') {
       args.push('exec', finalPrompt);
     } else {
       args.push(this.flags.prompt, finalPrompt);
     }
 
-    // Add streaming flags if requested and supported
+    // Add streaming flags if requested and supported (after prompt)
     if (options?.stream && this.flags.stream) {
       args.push(...this.flags.stream);
     }
