@@ -5,6 +5,7 @@
 import { PTYManager } from './pty-manager.js';
 import { DelegationHandler } from './delegation-handler.js';
 import { ConversationManager } from './conversation-manager.js';
+import { DetailedLogger } from '../utils/detailed-logger.js';
 import { getAgent, getAllAgents } from '../agents/agent-config.js';
 import {
   parseDelegationRequest,
@@ -31,6 +32,7 @@ export class Maestro {
     });
 
     this.conversationManager = new ConversationManager(this.primaryAgent.displayName);
+    this.detailedLogger = new DetailedLogger(this.primaryAgent, this.config);
     this.availableAgents = this.getAvailableAgents();
     this.isRunning = false;
   }
@@ -60,6 +62,9 @@ export class Maestro {
       throw new Error('Maestro is not running');
     }
 
+    // Log user message
+    this.detailedLogger.logUserMessage(userMessage);
+
     // Add user message to conversation
     this.conversationManager.addUserMessage(userMessage);
 
@@ -69,14 +74,25 @@ export class Maestro {
       spinner.start(`${this.primaryAgent.displayName}: thinking...`, 'magenta');
     }
 
+    const startTime = Date.now();
+
     try {
       // Execute primary agent (pass spinner for dynamic updates)
       const response = await this.executePrimaryAgent(userMessage, spinner);
 
+      const duration = Date.now() - startTime;
+
       // Stop spinner
       if (spinner) {
-        spinner.succeed(`${this.primaryAgent.displayName}: completed`);
+        spinner.succeed(`${this.primaryAgent.displayName}: completed (${(duration / 1000).toFixed(1)}s)`);
       }
+
+      // Log assistant response
+      this.detailedLogger.logAssistantResponse(
+        this.primaryAgent.displayName,
+        response.content,
+        true // cleaned
+      );
 
       // Add assistant message to conversation
       this.conversationManager.addAssistantMessage(response.content, this.primaryAgent.displayName);
@@ -87,6 +103,13 @@ export class Maestro {
       if (spinner) {
         spinner.fail(`Error: ${error.message}`);
       }
+
+      // Log error
+      this.detailedLogger.logError(error, {
+        userMessage,
+        agent: this.primaryAgent.displayName
+      });
+
       throw error;
     }
   }
@@ -127,6 +150,14 @@ export class Maestro {
           args = [promptMethod, message];
         }
 
+        // Log agent invocation
+        this.detailedLogger.logAgentInvocation(
+          agentId,
+          this.primaryAgent.name,
+          this.primaryAgent.command,
+          args
+        );
+
         // Spawn agent process
         this.ptyManager.spawn(agentId, this.primaryAgent.command, args);
 
@@ -134,6 +165,9 @@ export class Maestro {
         this.ptyManager.onData(agentId, async (data) => {
           output += data;
           buffer += data;
+
+          // Log raw output
+          this.detailedLogger.logRawOutput(agentId, data);
 
           // Try to parse JSONL events for streaming updates
           if (streamFlags && spinner) {
@@ -146,6 +180,9 @@ export class Maestro {
                 try {
                   const event = JSON.parse(line);
 
+                  // Log parsed event
+                  this.detailedLogger.logParsedEvent(agentId, event);
+
                   // Debug: log the event type
                   if (this.config.verbose) {
                     Logger.debug(`Event: ${event.type}`);
@@ -154,6 +191,9 @@ export class Maestro {
                   const status = this.extractStatusFromEvent(event, this.primaryAgent.name);
 
                   if (status) {
+                    // Log status update
+                    this.detailedLogger.logStatusUpdate(agentId, status, 'streaming');
+
                     if (this.config.verbose) {
                       Logger.debug(`Status update: ${status}`);
                     }
@@ -172,6 +212,7 @@ export class Maestro {
                   if (!streamFlags) {
                     const status = this.extractAgentStatus(output);
                     if (status && status !== lastStatus) {
+                      this.detailedLogger.logStatusUpdate(agentId, status, 'fallback');
                       spinner.text = `${this.primaryAgent.displayName}: ${status}`;
                       lastStatus = status;
                     }
@@ -183,6 +224,7 @@ export class Maestro {
             // Non-streaming mode: use text parsing
             const status = this.extractAgentStatus(output);
             if (status && status !== lastStatus) {
+              this.detailedLogger.logStatusUpdate(agentId, status, 'fallback');
               spinner.text = `${this.primaryAgent.displayName}: ${status}`;
               lastStatus = status;
             }
@@ -204,6 +246,11 @@ export class Maestro {
 
         // Handle process exit
         this.ptyManager.onExit(agentId, ({ exitCode }) => {
+          const duration = Date.now() - Date.parse(agentId.split('-')[1]);
+
+          // Log agent exit
+          this.detailedLogger.logAgentExit(agentId, exitCode, duration);
+
           if (exitCode === 0 || output.length > 0) {
             // Use finalResponse from streaming if available, otherwise clean output
             const responseContent = finalResponse || this.cleanOutput(output);
@@ -215,7 +262,9 @@ export class Maestro {
               exitCode
             });
           } else {
-            reject(new Error(`Agent exited with code ${exitCode}`));
+            const error = new Error(`Agent exited with code ${exitCode}`);
+            this.detailedLogger.logError(error, { agentId, exitCode });
+            reject(error);
           }
 
           // Cleanup
@@ -245,7 +294,9 @@ export class Maestro {
 
     // Validate agent exists
     if (!this.availableAgents.includes(request.agent)) {
-      throw new Error(`Unknown agent: ${request.agent}`);
+      const error = new Error(`Unknown agent: ${request.agent}`);
+      this.detailedLogger.logError(error, { request });
+      throw error;
     }
 
     Logger.maestro(`Delegating to ${request.agent}`);
@@ -258,6 +309,14 @@ export class Maestro {
         timeout: request.timeout,
         priority: request.priority
       }
+    );
+
+    // Log delegation
+    this.detailedLogger.logDelegation(
+      this.primaryAgent.displayName,
+      request.agent,
+      request.prompt,
+      result
     );
 
     // Add to conversation history
@@ -465,8 +524,16 @@ export class Maestro {
       ...this.conversationManager.getSummary(),
       primaryAgent: this.primaryAgent.name,
       availableAgents: this.availableAgents,
-      isRunning: this.isRunning
+      isRunning: this.isRunning,
+      detailedLog: this.detailedLogger.generateSummary()
     };
+  }
+
+  /**
+   * Get detailed logger instance
+   */
+  getDetailedLogger() {
+    return this.detailedLogger;
   }
 }
 

@@ -106,6 +106,9 @@ export class MaestroCLI {
   async handleCommand(input) {
     const [command, ...args] = input.slice(1).split(' ');
 
+    // Log command execution
+    this.maestro.getDetailedLogger().logCommand(command, args);
+
     switch (command.toLowerCase()) {
       case 'help':
         this.showHelp();
@@ -295,12 +298,13 @@ export class MaestroCLI {
     console.log('');
     Logger.info('Shutting down Maestro...');
 
-    // Auto-save conversation if there were messages
+    // Auto-save conversation and detailed logs if there were messages
     const stats = this.maestro.conversationManager.getSummary();
     if (stats.totalMessages > 0) {
       try {
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-        const filename = `logs/conversation-${timestamp}.json`;
+        const conversationFile = `logs/conversation-${timestamp}.json`;
+        const detailedLogFile = `logs/detailed-${timestamp}.json`;
 
         // Ensure logs directory exists
         const fs = await import('fs/promises');
@@ -310,10 +314,16 @@ export class MaestroCLI {
           // Directory already exists, ignore
         }
 
-        await this.maestro.conversationManager.saveToFile(filename);
-        Logger.info(`Conversation saved to: ${filename}`);
+        // Save conversation
+        await this.maestro.conversationManager.saveToFile(conversationFile);
+        Logger.info(`Conversation saved to: ${conversationFile}`);
+
+        // Save detailed logs
+        const detailedLogger = this.maestro.getDetailedLogger();
+        await detailedLogger.saveToFile(detailedLogFile);
+        Logger.info(`Detailed log saved to: ${detailedLogFile}`);
       } catch (error) {
-        Logger.warn(`Could not save conversation: ${error.message}`);
+        Logger.warn(`Could not save logs: ${error.message}`);
       }
     }
 
