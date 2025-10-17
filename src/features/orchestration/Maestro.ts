@@ -4,13 +4,13 @@
  */
 
 import { Agent } from '../../domain/entities/index.js';
-import { AgentRepository, ProtocolService } from '../../domain/index.js';
+import { AgentRepository } from '../../domain/index.js';
 import { PTYManager } from '../execution/pty/index.js';
-import { Delegator } from '../delegation/index.js';
+import { DelegationOrchestrator } from '../delegation/index.js';
 import { StreamProcessor } from '../streaming/index.js';
 import { OutputFormatter } from '../output/index.js';
 import { Spinner, StatusUpdater } from '../ui/index.js';
-import type { AgentName, AgentExecutionResult, DelegationResult } from '../../shared/types/index.js';
+import type { AgentName, AgentExecutionResult } from '../../shared/types/index.js';
 import { ConfigManager, MaestroConfig } from './ConfigManager.js';
 import { SessionManager } from './SessionManager.js';
 
@@ -27,11 +27,10 @@ export class Maestro {
   private primaryAgent: Agent;
   private config: ConfigManager;
   private ptyManager: PTYManager;
-  private delegator: Delegator;
+  private delegationOrchestrator: DelegationOrchestrator;
   private streamProcessor: StreamProcessor;
   private outputFormatter: OutputFormatter;
   private agentRepository: AgentRepository;
-  private protocolService: ProtocolService;
   private sessionManager: SessionManager;
   private statusUpdater: StatusUpdater;
   private spinner: Spinner | null = null;
@@ -48,13 +47,14 @@ export class Maestro {
 
     this.config = new ConfigManager(config);
     this.ptyManager = new PTYManager();
-    this.delegator = new Delegator({
+    this.delegationOrchestrator = new DelegationOrchestrator({
       inactivityTimeout: this.config.get('inactivityTimeout'),
-      maxDepth: this.config.get('maxDelegationDepth')
+      maxDepth: this.config.get('maxDelegationDepth'),
+      autoSuggest: true,
+      logDelegations: this.config.get('verbose')
     });
     this.streamProcessor = new StreamProcessor();
     this.outputFormatter = new OutputFormatter();
-    this.protocolService = new ProtocolService();
     this.sessionManager = new SessionManager();
     this.statusUpdater = new StatusUpdater();
   }
@@ -106,7 +106,7 @@ export class Maestro {
 
     // Cleanup subsystems
     this.ptyManager.killAll();
-    this.delegator.cleanup();
+    this.delegationOrchestrator.cleanup();
   }
 
   /**
@@ -135,9 +135,11 @@ export class Maestro {
    */
   private async executePrimaryAgent(message: string): Promise<AgentExecutionResult> {
     const processId = `maestro-${this.primaryAgent.name}-${Date.now()}`;
-    const delegations: DelegationResult[] = [];
     let output = '';
     let exitCode = 0;
+
+    // Set current agent context for delegation orchestrator
+    this.delegationOrchestrator.setCurrentAgent(this.primaryAgent.name);
 
     // Start spinner
     if (this.spinner) {
@@ -146,43 +148,76 @@ export class Maestro {
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
       try {
-        // Get execution arguments with streaming enabled
-        const args = this.primaryAgent.getExecutionArgs(message, { stream: true });
+        // Get execution arguments with streaming enabled and optional delegation prompt
+        const args = this.primaryAgent.getExecutionArgs(message, {
+          stream: true,
+          includeDelegationPrompt: this.config.get('includeDelegationPrompt')
+        });
 
         // Spawn PTY process
         this.ptyManager.spawn(processId, this.primaryAgent.command, args);
 
         // Setup event handlers
-        this.setupEventHandlers(processId, delegations, (data) => {
+        this.setupEventHandlers(processId, (data) => {
           output += data;
         });
 
-        // Handle exit
+        // Handle exit - Process delegations AFTER agent completes
         this.ptyManager.onExit(processId, async (exitInfo) => {
           exitCode = exitInfo.exitCode;
 
-          // Format output
-          const cleanedOutput = this.outputFormatter.format(output, this.primaryAgent.name);
+          try {
+            // Process delegations from complete output
+            const delegationResult = await this.delegationOrchestrator.processOutput(output);
 
-          // Update spinner with final status
-          if (this.spinner) {
-            if (exitCode === 0) {
-              this.spinner.succeed(`${this.primaryAgent.displayName}: completed`);
-            } else {
-              this.spinner.fail(`${this.primaryAgent.displayName}: failed (exit code ${exitCode})`);
+            // Use cleaned output (without delegation markers)
+            const cleanedOutput = this.outputFormatter.format(
+              delegationResult.cleanOutput,
+              this.primaryAgent.name
+            );
+
+            // Update spinner with final status
+            if (this.spinner) {
+              if (exitCode === 0) {
+                this.spinner.succeed(`${this.primaryAgent.displayName}: completed`);
+              } else {
+                this.spinner.fail(`${this.primaryAgent.displayName}: failed (exit code ${exitCode})`);
+              }
             }
+
+            // Add assistant message to session
+            this.sessionManager.addAssistantMessage(cleanedOutput, this.primaryAgent.name);
+
+            // Add delegation messages to session
+            for (const delegation of delegationResult.delegations) {
+              if (delegation.success && delegation.result) {
+                this.sessionManager.addDelegationMessage(
+                  this.primaryAgent.name,
+                  delegation.agent,
+                  delegation.result
+                );
+              }
+            }
+
+            // Resolve with result including delegations
+            resolve({
+              agent: this.primaryAgent.name,
+              content: cleanedOutput,
+              delegations: delegationResult.delegations.map(d => ({
+                fromAgent: this.primaryAgent.name,
+                toAgent: d.agent,
+                prompt: d.task,
+                result: d.result || d.error || ''
+              })),
+              exitCode
+            });
+
+          } catch (error) {
+            if (this.spinner) {
+              this.spinner.fail(`${this.primaryAgent.displayName}: delegation error`);
+            }
+            reject(error);
           }
-
-          // Add assistant message to session
-          this.sessionManager.addAssistantMessage(cleanedOutput, this.primaryAgent.name);
-
-          // Resolve with result
-          resolve({
-            agent: this.primaryAgent.name,
-            content: cleanedOutput,
-            delegations,
-            exitCode
-          });
         });
 
       } catch (error) {
@@ -199,7 +234,6 @@ export class Maestro {
    */
   private setupEventHandlers(
     processId: string,
-    delegations: DelegationResult[],
     onData: (data: string) => void
   ): void {
     this.ptyManager.onData(processId, async (data: string) => {
@@ -208,11 +242,6 @@ export class Maestro {
       // Process streaming events for status updates
       const lines = data.split('\n');
       for (const line of lines) {
-        // Check for delegation requests
-        if (this.protocolService.isDelegationRequest(line)) {
-          await this.processDelegation(line, delegations);
-        }
-
         // Update spinner with status
         const statusUpdate = this.streamProcessor.processEvent(this.primaryAgent.name, line);
         if (statusUpdate && this.statusUpdater) {
@@ -224,61 +253,5 @@ export class Maestro {
         }
       }
     });
-  }
-
-  /**
-   * Process a delegation request
-   */
-  private async processDelegation(
-    line: string,
-    delegations: DelegationResult[]
-  ): Promise<void> {
-    try {
-      const request = this.protocolService.parseDelegationRequest(line);
-      const targetAgent = this.agentRepository.findByName(request.agent as AgentName);
-
-      // Update spinner
-      if (this.spinner) {
-        this.spinner.update(
-          `Delegating to ${targetAgent.displayName}...`,
-          targetAgent.color
-        );
-      }
-
-      // Execute delegation
-      const result = await this.delegator.execute(targetAgent, request.prompt, {
-        priority: request.priority,
-        timeout: request.timeout
-      });
-
-      // Store delegation result
-      delegations.push({
-        fromAgent: this.primaryAgent.name,
-        toAgent: targetAgent.name,
-        prompt: request.prompt,
-        result
-      });
-
-      // Add delegation message to session
-      this.sessionManager.addDelegationMessage(
-        this.primaryAgent.name,
-        targetAgent.name,
-        result
-      );
-
-      // Update spinner back to primary agent
-      if (this.spinner) {
-        this.spinner.update(
-          `${this.primaryAgent.displayName}: processing...`,
-          this.primaryAgent.color
-        );
-      }
-
-    } catch (error) {
-      // Log error but don't fail the whole execution
-      if (this.config.get('verbose')) {
-        console.error('Delegation error:', error);
-      }
-    }
   }
 }

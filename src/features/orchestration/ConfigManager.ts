@@ -13,6 +13,7 @@ export interface MaestroConfig {
   maxDelegationDepth: number;
   showSpinner: boolean;
   verbose: boolean;
+  includeDelegationPrompt: boolean;  // Include delegation system prompt in agent prompts
 }
 
 export interface ValidationResult {
@@ -86,6 +87,10 @@ export class ConfigManager {
       errors.push('verbose must be a boolean');
     }
 
+    if (typeof this.config.includeDelegationPrompt !== 'boolean') {
+      errors.push('includeDelegationPrompt must be a boolean');
+    }
+
     return {
       valid: errors.length === 0,
       errors
@@ -101,7 +106,8 @@ export class ConfigManager {
       inactivityTimeout: DEFAULT_INACTIVITY_TIMEOUT,
       maxDelegationDepth: DEFAULT_MAX_DELEGATION_DEPTH,
       showSpinner: true,
-      verbose: false
+      verbose: false,
+      includeDelegationPrompt: true  // Enable delegation prompt by default
     };
   }
 }

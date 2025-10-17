@@ -1,5 +1,18 @@
 /**
  * Protocol Service - handles delegation protocol operations
+ *
+ * @deprecated This service is deprecated in favor of DelegationOrchestrator.
+ * The old JSON-based protocol (MAESTRO_DELEGATE::{"agent":"...","prompt":"..."})
+ * has been replaced with a new tag-based protocol: [[DELEGATE:agent]]task[[/DELEGATE]]
+ *
+ * New features:
+ * - Intelligent agent selection based on task analysis
+ * - Background/parallel delegation support
+ * - Better error handling and validation
+ * - Full-text parsing instead of line-by-line
+ *
+ * @see DelegationOrchestrator
+ * @see DelegationProtocolParser
  */
 import type { DelegationRequest, DelegationPriority } from '../../shared/types/index.js';
 import {
