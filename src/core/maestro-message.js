@@ -18,7 +18,7 @@ export class Maestro {
   constructor(primaryAgentName, config = {}) {
     this.primaryAgent = getAgent(primaryAgentName);
     this.config = {
-      delegationTimeout: config.delegationTimeout || 180000,  // 3 minutes for complex tasks
+      inactivityTimeout: config.inactivityTimeout || 60000,  // 60s without output = timeout
       maxDelegationDepth: config.maxDelegationDepth || 3,
       showSpinner: config.showSpinner !== false,
       verbose: config.verbose || false
@@ -26,7 +26,7 @@ export class Maestro {
 
     this.ptyManager = new PTYManager();
     this.delegationHandler = new DelegationHandler({
-      timeout: this.config.delegationTimeout,
+      inactivityTimeout: this.config.inactivityTimeout,
       maxDepth: this.config.maxDelegationDepth,
       showSpinner: this.config.showSpinner
     });
@@ -125,6 +125,7 @@ export class Maestro {
       const delegations = [];
       let lastStatus = '';
       let finalResponse = '';  // Store the actual response text
+      let inactivityTimer = null;  // Track inactivity timeout
 
       try {
         // Determine how to invoke the agent with streaming
@@ -161,10 +162,27 @@ export class Maestro {
         // Spawn agent process
         this.ptyManager.spawn(agentId, this.primaryAgent.command, args);
 
+        // Start inactivity timer
+        const startInactivityTimer = () => {
+          if (inactivityTimer) {
+            clearTimeout(inactivityTimer);
+          }
+          inactivityTimer = setTimeout(() => {
+            this.ptyManager.kill(agentId);
+            reject(new Error(`Agent inactive for ${this.config.inactivityTimeout}ms without output`));
+          }, this.config.inactivityTimeout);
+        };
+
+        // Start the timer initially
+        startInactivityTimer();
+
         // Collect output and update spinner
         this.ptyManager.onData(agentId, async (data) => {
           output += data;
           buffer += data;
+
+          // Reset inactivity timer on every data received
+          startInactivityTimer();
 
           // Log raw output
           this.detailedLogger.logRawOutput(agentId, data);
@@ -253,6 +271,11 @@ export class Maestro {
 
         // Handle process exit
         this.ptyManager.onExit(agentId, ({ exitCode }) => {
+          // Clear inactivity timer on exit
+          if (inactivityTimer) {
+            clearTimeout(inactivityTimer);
+          }
+
           const duration = Date.now() - Date.parse(agentId.split('-')[1]);
 
           // Log agent exit
@@ -277,15 +300,6 @@ export class Maestro {
           // Cleanup
           this.ptyManager.kill(agentId);
         });
-
-        // Set timeout
-        const timeout = setTimeout(() => {
-          this.ptyManager.kill(agentId);
-          reject(new Error(`Primary agent timed out after ${this.config.delegationTimeout}ms`));
-        }, this.config.delegationTimeout);
-
-        // Clear timeout on exit
-        this.ptyManager.onExit(agentId, () => clearTimeout(timeout));
 
       } catch (error) {
         reject(error);

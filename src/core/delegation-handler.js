@@ -18,7 +18,7 @@ export class DelegationHandler {
   constructor(config = {}) {
     this.ptyManager = new PTYManager();
     this.config = {
-      timeout: config.timeout || 60000, // 60 seconds default
+      inactivityTimeout: config.inactivityTimeout || 60000, // 60s without output
       maxDepth: config.maxDepth || 3,
       showSpinner: config.showSpinner !== false
     };
@@ -40,7 +40,7 @@ export class DelegationHandler {
     try {
       const agent = getAgent(agentName);
       const delegationId = `delegation-${++this.delegationCount}`;
-      const timeout = options.timeout || this.config.timeout;
+      const inactivityTimeout = options.inactivityTimeout || this.config.inactivityTimeout;
 
       Logger.delegation(agent.displayName, 'Starting task');
 
@@ -49,7 +49,7 @@ export class DelegationHandler {
         spinner.start(`${agent.displayName} is working...`, 'cyan');
       }
 
-      const result = await this.runDelegation(delegationId, agent, prompt, timeout);
+      const result = await this.runDelegation(delegationId, agent, prompt, inactivityTimeout);
 
       if (spinner) {
         spinner.succeed(`${agent.displayName} completed task`);
@@ -75,10 +75,21 @@ export class DelegationHandler {
   /**
    * Run a single delegation
    */
-  async runDelegation(id, agent, prompt, timeout) {
+  async runDelegation(id, agent, prompt, inactivityTimeout) {
     return new Promise((resolve, reject) => {
       let result = '';
-      let timeoutId;
+      let inactivityTimer = null;
+
+      // Start inactivity timer
+      const startInactivityTimer = () => {
+        if (inactivityTimer) {
+          clearTimeout(inactivityTimer);
+        }
+        inactivityTimer = setTimeout(() => {
+          this.ptyManager.kill(id);
+          reject(new DelegationTimeoutError(agent.name, inactivityTimeout));
+        }, inactivityTimeout);
+      };
 
       // Spawn process with appropriate non-interactive method
       try {
@@ -94,14 +105,22 @@ export class DelegationHandler {
 
         this.ptyManager.spawn(id, agent.command, args);
 
+        // Start inactivity timer initially
+        startInactivityTimer();
+
         // Handle data
         this.ptyManager.onData(id, (data) => {
           result += data;
+          // Reset inactivity timer on every data received
+          startInactivityTimer();
         });
 
         // Handle exit
         this.ptyManager.onExit(id, ({ exitCode }) => {
-          clearTimeout(timeoutId);
+          // Clear inactivity timer on exit
+          if (inactivityTimer) {
+            clearTimeout(inactivityTimer);
+          }
 
           if (exitCode === 0 || result.length > 0) {
             resolve(this.cleanOutput(result));
@@ -112,14 +131,10 @@ export class DelegationHandler {
           // Cleanup
           this.ptyManager.cleanup();
         });
-
-        // Set timeout
-        timeoutId = setTimeout(() => {
-          this.ptyManager.kill(id);
-          reject(new DelegationTimeoutError(agent.name, timeout));
-        }, timeout);
       } catch (error) {
-        clearTimeout(timeoutId);
+        if (inactivityTimer) {
+          clearTimeout(inactivityTimer);
+        }
         reject(new DelegationError(error.message, agent.name));
       }
     });
