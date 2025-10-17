@@ -26,6 +26,8 @@ export interface DelegationResult {
   result?: string;
   error?: string;
   duration?: number;
+  background?: boolean;  // Indicates if this ran in background
+  pending?: boolean;     // True if still running in background
 }
 
 /**
@@ -50,6 +52,7 @@ export class DelegationOrchestrator {
   private logger: ConsoleLogger;
   private config: Required<OrchestratorConfig>;
   private currentAgent: AgentName | null = null;
+  private backgroundDelegations: Map<string, Promise<DelegationResult>> = new Map();
 
   constructor(config: OrchestratorConfig = {}) {
     this.config = {
@@ -111,13 +114,37 @@ export class DelegationOrchestrator {
     // Execute all delegations
     const results: DelegationResult[] = [];
 
-    // Execute individual delegations sequentially
-    for (const delegation of parseResult.delegations) {
+    // Separate background and foreground delegations
+    const foregroundDelegations = parseResult.delegations.filter(d => !d.background);
+    const backgroundDelegations = parseResult.delegations.filter(d => d.background);
+
+    // Start background delegations (non-blocking)
+    for (const delegation of backgroundDelegations) {
+      const delegationId = `${delegation.agent}-${Date.now()}`;
+      const promise = this.executeSingleDelegation(delegation);
+      this.backgroundDelegations.set(delegationId, promise);
+
+      // Add pending result
+      results.push({
+        success: true,
+        agent: delegation.agent,
+        task: delegation.task,
+        background: true,
+        pending: true
+      });
+
+      if (this.config.logDelegations) {
+        this.logger.info(`Started background delegation to ${delegation.agent}`);
+      }
+    }
+
+    // Execute foreground delegations sequentially (blocking)
+    for (const delegation of foregroundDelegations) {
       const result = await this.executeSingleDelegation(delegation);
       results.push(result);
     }
 
-    // Execute parallel groups
+    // Execute parallel groups (blocking)
     for (const group of parseResult.parallelGroups) {
       const groupResults = await this.executeParallelDelegations(group.delegations);
       results.push(...groupResults);
@@ -387,9 +414,86 @@ You: "I'll delegate these tasks in parallel for efficiency:
   }
 
   /**
+   * Check status of background delegations
+   * @returns Array of completed background delegations
+   */
+  async checkBackgroundDelegations(): Promise<DelegationResult[]> {
+    const completed: DelegationResult[] = [];
+    const stillRunning: Map<string, Promise<DelegationResult>> = new Map();
+
+    for (const [id, promise] of this.backgroundDelegations.entries()) {
+      // Check if promise is settled
+      const result = await Promise.race([
+        promise,
+        Promise.resolve(null)
+      ]);
+
+      if (result !== null) {
+        // Delegation completed
+        completed.push({ ...result, background: true, pending: false });
+
+        if (this.config.logDelegations) {
+          this.logger.success(`Background delegation ${id} completed`);
+        }
+      } else {
+        // Still running
+        stillRunning.set(id, promise);
+      }
+    }
+
+    // Update the map with only running delegations
+    this.backgroundDelegations = stillRunning;
+
+    return completed;
+  }
+
+  /**
+   * Wait for all background delegations to complete
+   * @param timeout - Optional timeout in milliseconds
+   * @returns All background delegation results
+   */
+  async waitForBackgroundDelegations(timeout?: number): Promise<DelegationResult[]> {
+    if (this.backgroundDelegations.size === 0) {
+      return [];
+    }
+
+    const promises = Array.from(this.backgroundDelegations.values());
+
+    if (timeout) {
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Background delegations timeout')), timeout)
+      );
+
+      try {
+        const results = await Promise.race([
+          Promise.all(promises),
+          timeoutPromise
+        ]);
+        this.backgroundDelegations.clear();
+        return results.map(r => ({ ...r, background: true, pending: false }));
+      } catch (error) {
+        // Timeout - return what we have
+        return this.checkBackgroundDelegations();
+      }
+    }
+
+    const results = await Promise.all(promises);
+    this.backgroundDelegations.clear();
+    return results.map(r => ({ ...r, background: true, pending: false }));
+  }
+
+  /**
+   * Get count of running background delegations
+   */
+  getBackgroundDelegationCount(): number {
+    return this.backgroundDelegations.size;
+  }
+
+  /**
    * Clean up resources
    */
   cleanup(): void {
     this.delegator.cleanup();
+    this.backgroundDelegations.clear();
   }
 }

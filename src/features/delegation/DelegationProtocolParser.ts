@@ -18,6 +18,7 @@ export interface ParsedDelegation {
   task: string;
   priority?: DelegationPriority;
   timeout?: number;
+  background?: boolean;  // New: run in background while agent continues
   metadata?: Record<string, string>;
 }
 
@@ -205,8 +206,12 @@ export class DelegationProtocolParser {
         }
       }
 
+      if (metadata.background) {
+        delegation.background = metadata.background === 'true';
+      }
+
       // Store remaining metadata
-      const { priority, timeout, ...rest } = metadata;
+      const { priority, timeout, background, ...rest } = metadata;
       if (Object.keys(rest).length > 0) {
         delegation.metadata = rest;
       }
