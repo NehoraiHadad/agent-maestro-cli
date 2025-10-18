@@ -54,9 +54,8 @@ export class AgentRepository {
           'Custom tool integration'
         ],
         flags: {
-          prompt: '-p',
-          json: ['--output-format', 'json'],
-          stream: ['--output-format', 'stream-json']
+          prompt: '-p',  // -p flag works reliably even with commas in prompts
+          json: ['--output-format', 'json']
         },
         requiresAuth: true,
         authType: 'Google account / AI Studio key',

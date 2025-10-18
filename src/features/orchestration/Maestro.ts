@@ -161,9 +161,10 @@ export class Maestro {
         }
 
         // Get execution arguments with streaming and continuation support
+        // Note: DO NOT include delegation prompt for primary agent - it's for delegated tasks only
         const args = this.primaryAgent.getExecutionArgs(message, {
           stream: true,
-          includeDelegationPrompt: this.config.get('includeDelegationPrompt'),
+          includeDelegationPrompt: false,  // Primary agent doesn't need delegation instructions
           continueSession: hasActiveSession,
           sessionId: cliSession?.sessionId
         });
