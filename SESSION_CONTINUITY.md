@@ -227,6 +227,15 @@ According to official documentation and GitHub discussions:
 
 **Recommendation**: Keep Gemini in current state (working but without session continuity) and revisit when Google adds the feature.
 
+**User Warning**: When Gemini is selected as the primary agent, a warning is displayed:
+```
+⚠️  Note: Gemini does not support session continuity.
+   Each message will be treated as a new conversation.
+   For better context preservation, consider using Claude or Codex.
+```
+
+This warning is shown in StartCommand.ts:61-68 before starting the session.
+
 ---
 
 ## Issues Fixed

@@ -58,6 +58,15 @@ export class StartCommand {
         process.exit(1);
       }
 
+      // Warn about Gemini's lack of session continuity
+      if (agentName === 'gemini') {
+        this.logger.separator();
+        this.logger.warn('⚠️  Note: Gemini does not support session continuity.');
+        this.logger.warn('   Each message will be treated as a new conversation.');
+        this.logger.warn('   For better context preservation, consider using Claude or Codex.');
+        this.logger.separator();
+      }
+
       // Create configuration
       const config = {
         inactivityTimeout: parseInt(options.timeout || '60000'),
