@@ -9,6 +9,7 @@ import { Command } from 'commander';
 import { StartCommand } from './commands/StartCommand.js';
 import { ListCommand } from './commands/ListCommand.js';
 import { InfoCommand } from './commands/InfoCommand.js';
+import { SkillsCommand } from './commands/SkillsCommand.js';
 
 const program = new Command();
 
@@ -21,6 +22,7 @@ program
 StartCommand.register(program);
 ListCommand.register(program);
 InfoCommand.register(program);
+SkillsCommand.register(program);
 
 // Parse command line arguments
 program.parse(process.argv);

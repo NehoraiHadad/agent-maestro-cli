@@ -79,6 +79,74 @@ npm install -g @google/gemini-cli
 npm install -g @openai/codex
 ```
 
+## 🎓 AgentMaestro Skills (Optional but Recommended)
+
+AgentMaestro includes a **delegation advisor skill** that teaches Claude Code when and how to delegate tasks intelligently. This dramatically improves delegation decisions!
+
+### What are Skills?
+
+Skills are modular capabilities introduced by Anthropic that extend Claude Code's intelligence. The `maestro-delegation-advisor` skill provides Claude with:
+
+- **Agent capability matrix** - Detailed strengths/weaknesses of each agent
+- **Decision framework** - When to delegate and to which agent
+- **Real-world examples** - Proven delegation patterns
+- **Performance benchmarks** - SWE-bench, HumanEval scores
+
+### Benefits
+
+- ✅ **Smarter delegation decisions** - Claude chooses the right agent automatically
+- ✅ **Better task breakdown** - Optimal parallel vs sequential delegation
+- ✅ **Context-efficient** - Only loads when needed (~50 tokens overhead)
+- ✅ **Zero code changes** - Works with existing AgentMaestro setup
+
+### Installation
+
+```bash
+# Install the delegation advisor skill
+maestro skills install
+
+# Check installation status
+maestro skills status
+
+# (Optional) Uninstall
+maestro skills uninstall
+```
+
+The skill will be installed to `~/.claude/skills/maestro-delegation-advisor/` and automatically loaded by Claude Code.
+
+### How it Works
+
+1. **Before Skills:** Claude delegates based on basic keywords or guesses
+2. **With Skills:** Claude uses expert decision framework with confidence scores
+
+```bash
+# Example: Security audit task
+$ maestro --agent claude
+> Analyze our authentication system for vulnerabilities
+
+# Without skill:
+Claude: "I'll check the code..."
+[[DELEGATE:codex]]  # ❌ Wrong choice!
+
+# With skill:
+Claude: "Security analysis requires Claude's expertise (92/100, 44% faster)"
+[[DELEGATE:claude]]  # ✅ Optimal choice!
+```
+
+### When to Use
+
+**Always recommended when:**
+- Using Claude as primary agent
+- Tasks require intelligent delegation
+- You want optimal multi-agent collaboration
+
+**Not needed if:**
+- Only using a single agent
+- Manual delegation is preferred
+- Codex or Gemini are primary (they don't support Skills yet)
+
+For more details, see: [skills/maestro-delegation-advisor/SKILL.md](skills/maestro-delegation-advisor/SKILL.md)
+
 ## 🚀 Usage
 
 ### Basic Usage
