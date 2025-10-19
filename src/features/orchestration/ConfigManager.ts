@@ -5,7 +5,14 @@
 
 import {
   DEFAULT_INACTIVITY_TIMEOUT,
-  DEFAULT_MAX_DELEGATION_DEPTH
+  DEFAULT_MAX_DELEGATION_DEPTH,
+  DEFAULT_LOG_DIRECTORY,
+  DEFAULT_LOG_LEVEL,
+  DEFAULT_MAX_LOG_FILES,
+  DEFAULT_MAX_LOG_SIZE_BYTES,
+  DEFAULT_ENABLE_FILE_LOGGING,
+  DEFAULT_LOG_ROTATION,
+  type LogLevel
 } from '../../shared/constants/index.js';
 
 export interface MaestroConfig {
@@ -14,6 +21,14 @@ export interface MaestroConfig {
   showSpinner: boolean;
   verbose: boolean;
   includeDelegationPrompt: boolean;  // Include delegation system prompt in agent prompts
+
+  // Logging configuration
+  enableFileLogging: boolean;
+  logLevel: LogLevel;
+  logDirectory: string;
+  logRotation: boolean;
+  maxLogFiles: number;
+  maxLogSizeBytes: number;
 }
 
 export interface ValidationResult {
@@ -91,6 +106,30 @@ export class ConfigManager {
       errors.push('includeDelegationPrompt must be a boolean');
     }
 
+    if (typeof this.config.enableFileLogging !== 'boolean') {
+      errors.push('enableFileLogging must be a boolean');
+    }
+
+    if (!['debug', 'info', 'warn', 'error'].includes(this.config.logLevel)) {
+      errors.push('logLevel must be one of: debug, info, warn, error');
+    }
+
+    if (typeof this.config.logDirectory !== 'string' || !this.config.logDirectory) {
+      errors.push('logDirectory must be a non-empty string');
+    }
+
+    if (typeof this.config.logRotation !== 'boolean') {
+      errors.push('logRotation must be a boolean');
+    }
+
+    if (this.config.maxLogFiles < 1) {
+      errors.push('maxLogFiles must be at least 1');
+    }
+
+    if (this.config.maxLogSizeBytes < 1024) {
+      errors.push('maxLogSizeBytes must be at least 1024 bytes');
+    }
+
     return {
       valid: errors.length === 0,
       errors
@@ -107,7 +146,15 @@ export class ConfigManager {
       maxDelegationDepth: DEFAULT_MAX_DELEGATION_DEPTH,
       showSpinner: true,
       verbose: false,
-      includeDelegationPrompt: true  // Enable delegation prompt by default
+      includeDelegationPrompt: true,  // Enable delegation prompt by default
+
+      // Logging defaults
+      enableFileLogging: DEFAULT_ENABLE_FILE_LOGGING,
+      logLevel: DEFAULT_LOG_LEVEL,
+      logDirectory: DEFAULT_LOG_DIRECTORY,
+      logRotation: DEFAULT_LOG_ROTATION,
+      maxLogFiles: DEFAULT_MAX_LOG_FILES,
+      maxLogSizeBytes: DEFAULT_MAX_LOG_SIZE_BYTES
     };
   }
 }

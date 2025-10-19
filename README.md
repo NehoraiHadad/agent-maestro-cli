@@ -145,7 +145,7 @@ Claude: "Security analysis requires Claude's expertise (92/100, 44% faster)"
 - Manual delegation is preferred
 - Codex or Gemini are primary (they don't support Skills yet)
 
-For more details, see: [skills/maestro-delegation-advisor/SKILL.md](skills/maestro-delegation-advisor/SKILL.md)
+For more details, see: [.claude/skills/maestro-delegation-advisor/SKILL.md](.claude/skills/maestro-delegation-advisor/SKILL.md)
 
 ## 🚀 Usage
 

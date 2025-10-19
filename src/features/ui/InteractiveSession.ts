@@ -5,16 +5,19 @@ import * as readline from 'readline';
 import chalk from 'chalk';
 import type { Maestro } from '../orchestration/Maestro.js';
 import { ConsoleLogger } from './logger/ConsoleLogger.js';
+import type { LoggingManager } from '../logging/index.js';
 
 export class InteractiveSession {
   private rl: readline.Interface;
   private maestro: Maestro;
   private logger: ConsoleLogger;
+  private loggingManager: LoggingManager;
   private isActive: boolean = false;
 
   constructor(maestro: Maestro) {
     this.maestro = maestro;
     this.logger = new ConsoleLogger();
+    this.loggingManager = maestro.getLoggingManager();
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
@@ -40,33 +43,33 @@ export class InteractiveSession {
     // Setup line handler
     this.rl.on('line', async (input: string) => {
       const trimmed = input.trim();
-      console.log(`[DEBUG] Line received: "${trimmed}", isActive: ${this.isActive}`);
+      this.loggingManager.debug('InteractiveSession', `Line received: "${trimmed.substring(0, 50)}...", isActive: ${this.isActive}`);
 
       // Check for exit commands
       if (this.isExitCommand(trimmed)) {
-        console.log('[DEBUG] Exit command detected');
+        this.loggingManager.debug('InteractiveSession', 'Exit command detected');
         await this.stop();
         return;
       }
 
       // Skip empty input
       if (!trimmed) {
-        console.log('[DEBUG] Empty input, prompting again');
+        this.loggingManager.debug('InteractiveSession', 'Empty input, prompting again');
         this.rl.prompt();
         return;
       }
 
       // Process the message
-      console.log('[DEBUG] Processing message...');
+      this.loggingManager.debug('InteractiveSession', 'Processing message...');
       await this.processMessage(trimmed);
-      console.log('[DEBUG] Message processing complete');
+      this.loggingManager.debug('InteractiveSession', 'Message processing complete');
 
       // Prompt for next input
       if (this.isActive) {
-        console.log('[DEBUG] Prompting for next input');
+        this.loggingManager.debug('InteractiveSession', 'Prompting for next input');
         this.rl.prompt();
       } else {
-        console.log('[DEBUG] Session no longer active, not prompting');
+        this.loggingManager.debug('InteractiveSession', 'Session no longer active, not prompting');
       }
     });
 
@@ -79,7 +82,7 @@ export class InteractiveSession {
 
     // Handle stream end
     this.rl.on('close', async () => {
-      console.log('[DEBUG] readline close event triggered');
+      this.loggingManager.debug('InteractiveSession', 'readline close event triggered');
       if (this.isActive) {
         await this.stop();
       }
@@ -112,10 +115,20 @@ export class InteractiveSession {
       this.rl.resume();
 
     } catch (error) {
-      this.logger.error(`\n❌ Error: ${error instanceof Error ? error.message : String(error)}`);
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      this.logger.error(`\n❌ Error: ${errorMsg}`);
 
+      // Log error with stack trace
       if (error instanceof Error && error.stack) {
         this.logger.debug(error.stack);
+        this.loggingManager.error('InteractiveSession', 'Message processing failed', {
+          error: errorMsg,
+          stack: error.stack
+        });
+      } else {
+        this.loggingManager.error('InteractiveSession', 'Message processing failed', {
+          error: errorMsg
+        });
       }
 
       // Resume readline even on error

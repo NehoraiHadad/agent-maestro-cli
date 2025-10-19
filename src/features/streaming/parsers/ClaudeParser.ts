@@ -5,6 +5,8 @@
 
 import { BaseParser } from './BaseParser.js';
 import type { ClaudeStreamEvent, StatusUpdate } from '../../../shared/types/index.js';
+import { truncate } from '../../../shared/utils/index.js';
+import { formatBashCommand, extractFilename } from './CommandFormatter.js';
 
 /**
  * Claude-specific streaming event parser
@@ -31,11 +33,14 @@ export class ClaudeParser extends BaseParser {
       }
     }
 
-    // Assistant message (responding)
+    // User message (tool results)
+    if (this.hasType(event, 'user')) {
+      return this.extractToolResultStatus(event);
+    }
+
+    // Assistant message - check for tool use or text
     if (this.hasType(event, 'assistant')) {
-      if (this.exists(event.message)) {
-        return 'responding...';
-      }
+      return this.extractAssistantStatus(event);
     }
 
     // Result (completed)
@@ -44,6 +49,104 @@ export class ClaudeParser extends BaseParser {
     }
 
     return null;
+  }
+
+  /**
+   * Extract status from assistant message (tool use or thinking)
+   */
+  private extractAssistantStatus(event: ClaudeStreamEvent): string | null {
+    if (!event.message || !Array.isArray(event.message.content)) {
+      return 'responding...';
+    }
+
+    // Check each content block
+    for (const block of event.message.content) {
+      // Tool use block
+      if (block.type === 'tool_use' && block.name) {
+        return this.formatToolUseStatus(block.name, block.input);
+      }
+
+      // Text block - show thinking snippet
+      if (block.type === 'text' && block.text) {
+        return `thinking: ${truncate(block.text, 60)}`;
+      }
+    }
+
+    return 'responding...';
+  }
+
+  /**
+   * Extract status from user message (tool results)
+   */
+  private extractToolResultStatus(event: ClaudeStreamEvent): string | null {
+    if (!event.message || !Array.isArray(event.message.content)) {
+      return null;
+    }
+
+    // Find tool result blocks
+    for (const block of event.message.content) {
+      if (block.type === 'tool_result' && block.tool_use_id) {
+        if (block.is_error) {
+          return 'tool execution failed';
+        }
+        return 'processing tool result...';
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Format tool use into readable status message
+   */
+  private formatToolUseStatus(toolName: string, input?: Record<string, unknown>): string {
+    // Handle Bash tool specially to show command details
+    if (toolName === 'Bash' && input?.command) {
+      return this.formatBashCommand(input.command as string);
+    }
+
+    // Handle Read tool
+    if (toolName === 'Read' && input?.file_path) {
+      const filename = extractFilename(input.file_path as string);
+      return `reading: ${filename}`;
+    }
+
+    // Handle Edit tool
+    if (toolName === 'Edit' && input?.file_path) {
+      const filename = extractFilename(input.file_path as string);
+      return `editing: ${filename}`;
+    }
+
+    // Handle Write tool
+    if (toolName === 'Write' && input?.file_path) {
+      const filename = extractFilename(input.file_path as string);
+      return `writing: ${filename}`;
+    }
+
+    // Handle Grep tool
+    if (toolName === 'Grep' && input?.pattern) {
+      return `searching: ${truncate(input.pattern as string, 40)}`;
+    }
+
+    // Handle Glob tool
+    if (toolName === 'Glob' && input?.pattern) {
+      return `finding files: ${input.pattern}`;
+    }
+
+    // Handle Task tool (agent delegation)
+    if (toolName === 'Task' && input?.subagent_type) {
+      return `delegating to ${input.subagent_type}...`;
+    }
+
+    // Generic tool usage
+    return `using tool: ${toolName}`;
+  }
+
+  /**
+   * Format Bash command into readable status (delegates to shared formatter)
+   */
+  private formatBashCommand(command: string): string {
+    return formatBashCommand(command, 'executing');
   }
 
   /**

@@ -16,6 +16,7 @@ import { DelegationProtocolParser, type ParsedDelegation } from './DelegationPro
 import { RequestValidator } from './RequestValidator.js';
 import { ConsoleLogger } from '../ui/index.js';
 import type { SessionManager } from '../orchestration/SessionManager.js';
+import type { LoggingManager } from '../logging/index.js';
 
 /**
  * Delegation execution result
@@ -51,6 +52,7 @@ export class DelegationOrchestrator {
   private validator: RequestValidator;
   private agentRepository: AgentRepository;
   private logger: ConsoleLogger;
+  private loggingManager: LoggingManager | null = null;
   private config: Required<OrchestratorConfig>;
   private currentAgent: AgentName | null = null;
   private backgroundDelegations: Map<string, Promise<DelegationResult>> = new Map();
@@ -80,6 +82,13 @@ export class DelegationOrchestrator {
    */
   setSessionManager(sessionManager: SessionManager): void {
     this.delegator.setSessionManager(sessionManager);
+  }
+
+  /**
+   * Set the logging manager for structured logging
+   */
+  setLoggingManager(loggingManager: LoggingManager): void {
+    this.loggingManager = loggingManager;
   }
 
   /**
@@ -219,6 +228,20 @@ export class DelegationOrchestrator {
         this.logger.debug(`Task: ${delegation.task.substring(0, 100)}${delegation.task.length > 100 ? '...' : ''}`);
       }
 
+      // Structured logging
+      if (this.loggingManager && this.currentAgent) {
+        this.loggingManager.logDelegation(
+          this.currentAgent,
+          delegation.agent,
+          delegation.task,
+          'started',
+          {
+            priority: delegation.priority,
+            timeout: delegation.timeout
+          }
+        );
+      }
+
       // Execute the delegation
       const result = await this.delegator.execute(agent, delegation.task, {
         priority: delegation.priority,
@@ -231,6 +254,20 @@ export class DelegationOrchestrator {
       // Log delegation completion
       if (this.config.logDelegations) {
         this.logger.success(`Delegation to ${agent.displayName} completed in ${(duration / 1000).toFixed(1)}s`);
+      }
+
+      // Structured logging
+      if (this.loggingManager && this.currentAgent) {
+        this.loggingManager.logDelegation(
+          this.currentAgent,
+          delegation.agent,
+          delegation.task,
+          'completed',
+          {
+            duration,
+            resultLength: result.length
+          }
+        );
       }
 
       return {
@@ -247,6 +284,20 @@ export class DelegationOrchestrator {
 
       if (this.config.logDelegations) {
         this.logger.error(`Delegation to ${delegation.agent} failed: ${errorMessage}`);
+      }
+
+      // Structured logging for failed delegation
+      if (this.loggingManager && this.currentAgent) {
+        this.loggingManager.logDelegation(
+          this.currentAgent,
+          delegation.agent,
+          delegation.task,
+          'failed',
+          {
+            duration,
+            error: errorMessage
+          }
+        );
       }
 
       return {

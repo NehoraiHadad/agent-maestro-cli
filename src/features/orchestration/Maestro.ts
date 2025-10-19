@@ -13,6 +13,7 @@ import { Spinner, StatusUpdater } from '../ui/index.js';
 import type { AgentName, AgentExecutionResult } from '../../shared/types/index.js';
 import { ConfigManager, MaestroConfig } from './ConfigManager.js';
 import { SessionManager } from './SessionManager.js';
+import { LoggingManager } from '../logging/index.js';
 
 export interface MaestroStats {
   totalMessages: number;
@@ -33,6 +34,7 @@ export class Maestro {
   private agentRepository: AgentRepository;
   private sessionManager: SessionManager;
   private statusUpdater: StatusUpdater;
+  private loggingManager: LoggingManager;
   private spinner: Spinner | null = null;
   private isRunning: boolean = false;
 
@@ -48,6 +50,17 @@ export class Maestro {
     this.config = new ConfigManager(config);
     this.ptyManager = new PTYManager();
     this.sessionManager = new SessionManager();
+
+    // Initialize logging manager
+    this.loggingManager = new LoggingManager({
+      enableFileLogging: this.config.get('enableFileLogging'),
+      logLevel: this.config.get('logLevel'),
+      logDirectory: this.config.get('logDirectory'),
+      logRotation: this.config.get('logRotation'),
+      maxLogFiles: this.config.get('maxLogFiles'),
+      maxLogSizeBytes: this.config.get('maxLogSizeBytes')
+    });
+
     this.delegationOrchestrator = new DelegationOrchestrator({
       inactivityTimeout: this.config.get('inactivityTimeout'),
       maxDepth: this.config.get('maxDelegationDepth'),
@@ -56,6 +69,8 @@ export class Maestro {
     });
     // Connect session manager to delegation orchestrator for session continuity
     this.delegationOrchestrator.setSessionManager(this.sessionManager);
+    // Connect logging manager to delegation orchestrator
+    this.delegationOrchestrator.setLoggingManager(this.loggingManager);
     this.streamProcessor = new StreamProcessor();
     this.outputFormatter = new OutputFormatter();
     this.statusUpdater = new StatusUpdater();
@@ -71,11 +86,20 @@ export class Maestro {
 
     this.isRunning = true;
 
+    // Initialize logging
+    await this.loggingManager.initialize();
+    this.loggingManager.logSession('started', {
+      primaryAgent: this.primaryAgent.name,
+      config: this.config.getAll()
+    });
+
     // Initialize spinner if enabled
     if (this.config.get('showSpinner')) {
       this.spinner = new Spinner();
       this.statusUpdater.setSpinner(this.spinner);
     }
+
+    this.loggingManager.debug('Maestro', 'Orchestrator started successfully');
   }
 
   /**
@@ -87,6 +111,9 @@ export class Maestro {
     if (!this.isRunning) {
       throw new Error('Maestro is not running. Call start() first.');
     }
+
+    // Log user message
+    this.loggingManager.logUserMessage(message);
 
     // Add user message to session
     this.sessionManager.addUserMessage(message);
@@ -101,6 +128,8 @@ export class Maestro {
   async stop(): Promise<void> {
     this.isRunning = false;
 
+    this.loggingManager.debug('Maestro', 'Stopping orchestrator');
+
     // Stop spinner
     if (this.spinner) {
       this.spinner.stop();
@@ -109,6 +138,9 @@ export class Maestro {
     // Cleanup subsystems
     this.ptyManager.killAll();
     this.delegationOrchestrator.cleanup();
+
+    // Close logging (this will log session end)
+    await this.loggingManager.close();
   }
 
   /**
@@ -133,12 +165,26 @@ export class Maestro {
   }
 
   /**
+   * Get logging manager for external access
+   * @returns The logging manager instance
+   */
+  getLoggingManager(): LoggingManager {
+    return this.loggingManager;
+  }
+
+  /**
    * Execute the primary agent with streaming
    */
   private async executePrimaryAgent(message: string): Promise<AgentExecutionResult> {
     const processId = `maestro-${this.primaryAgent.name}-${Date.now()}`;
     let output = '';
     let exitCode = 0;
+
+    // Log agent execution start
+    this.loggingManager.logAgentExecution(this.primaryAgent.name, 'started', {
+      processId,
+      messageLength: message.length
+    });
 
     // Set current agent context for delegation orchestrator
     this.delegationOrchestrator.setCurrentAgent(this.primaryAgent.name);
@@ -161,10 +207,10 @@ export class Maestro {
         }
 
         // Get execution arguments with streaming and continuation support
-        // Note: DO NOT include delegation prompt for primary agent - it's for delegated tasks only
+        // Include delegation prompt so primary agent knows when and how to delegate
         const args = this.primaryAgent.getExecutionArgs(message, {
           stream: true,
-          includeDelegationPrompt: false,  // Primary agent doesn't need delegation instructions
+          includeDelegationPrompt: true,  // Enable delegation awareness for primary agent
           continueSession: hasActiveSession,
           sessionId: cliSession?.sessionId
         });
@@ -225,6 +271,23 @@ export class Maestro {
               }
             }
 
+            // Log agent execution result
+            if (exitCode === 0) {
+              this.loggingManager.logAgentExecution(this.primaryAgent.name, 'completed', {
+                exitCode,
+                outputLength: cleanedOutput.length,
+                delegationCount: delegationResult.delegations.length
+              });
+            } else {
+              this.loggingManager.logAgentExecution(this.primaryAgent.name, 'failed', {
+                exitCode,
+                outputLength: cleanedOutput.length
+              });
+            }
+
+            // Log agent response
+            this.loggingManager.logAgentResponse(this.primaryAgent.name, cleanedOutput);
+
             // Add assistant message to session
             this.sessionManager.addAssistantMessage(cleanedOutput, this.primaryAgent.name);
 
@@ -260,6 +323,14 @@ export class Maestro {
             if (this.spinner) {
               this.spinner.fail(`${this.primaryAgent.displayName}: delegation error`);
             }
+
+            // Log delegation error
+            const errorMsg = error instanceof Error ? error.message : String(error);
+            this.loggingManager.error('Maestro', `Delegation processing failed: ${errorMsg}`, {
+              agent: this.primaryAgent.name,
+              error: errorMsg
+            });
+
             reject(error);
           }
         });
@@ -268,6 +339,14 @@ export class Maestro {
         if (this.spinner) {
           this.spinner.fail(`${this.primaryAgent.displayName}: error`);
         }
+
+        // Log execution error
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        this.loggingManager.error('Maestro', `Agent execution failed: ${errorMsg}`, {
+          agent: this.primaryAgent.name,
+          error: errorMsg
+        });
+
         reject(error);
       }
     });

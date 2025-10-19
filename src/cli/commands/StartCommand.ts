@@ -13,6 +13,7 @@ import { AgentNotFoundError } from '../../shared/errors/index.js';
 
 interface StartCommandOptions {
   agent?: string;
+  message?: string;
   verbose?: boolean;
   spinner?: boolean;
   timeout?: string;
@@ -31,6 +32,7 @@ export class StartCommand {
   static register(program: Command): void {
     program
       .option('-a, --agent <name>', 'specify primary agent (claude, gemini, codex)')
+      .option('-m, --message <text>', 'single message to send (non-interactive mode)')
       .option('-v, --verbose', 'enable verbose logging')
       .option('--no-spinner', 'disable loading spinners')
       .option('--timeout <ms>', 'delegation timeout in milliseconds', '60000')
@@ -80,9 +82,43 @@ export class StartCommand {
       const maestro = new Maestro(agentName as AgentName, config);
       await maestro.start();
 
-      // Start interactive session
-      const session = new InteractiveSession(maestro);
-      await session.start();
+      // Non-interactive mode: send single message and exit
+      if (options.message) {
+        this.logger.info(`\nSending message: ${options.message}\n`);
+        const result = await maestro.sendMessage(options.message);
+
+        // Display result
+        this.logger.separator();
+        this.logger.info(`Agent Response (${result.agent}):`);
+        this.logger.separator();
+        console.log(result.content || '(no output)');
+        this.logger.separator();
+
+        // Display delegation info if any
+        if (result.delegations && result.delegations.length > 0) {
+          this.logger.separator();
+          this.logger.info(`Delegations performed: ${result.delegations.length}`);
+          result.delegations.forEach((delegation, i) => {
+            this.logger.info(`${i + 1}. ${delegation.fromAgent} → ${delegation.toAgent}`);
+            this.logger.info(`   Task: ${delegation.prompt}`);
+            this.logger.info(`   Result: ${delegation.result.substring(0, 100)}...`);
+          });
+          this.logger.separator();
+        }
+
+        // Display exit code
+        if (result.exitCode !== 0) {
+          this.logger.warn(`Exit code: ${result.exitCode}`);
+        }
+
+        // Stop maestro
+        await maestro.stop();
+        this.logger.success('\n✓ Completed\n');
+      } else {
+        // Interactive mode: start session
+        const session = new InteractiveSession(maestro);
+        await session.start();
+      }
 
     } catch (error) {
       if (error instanceof AgentNotFoundError) {

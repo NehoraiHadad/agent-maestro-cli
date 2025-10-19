@@ -3,6 +3,7 @@
  */
 
 export type EventType =
+  | 'thread.started'
   | 'turn.started'
   | 'turn.completed'
   | 'item.started'
@@ -14,6 +15,7 @@ export type EventType =
   | 'message'
   | 'tool_use'
   | 'tool_result'
+  | 'user'
   | 'error';
 
 export type ItemType =
@@ -28,18 +30,38 @@ export interface BaseStreamEvent {
 }
 
 export interface CodexStreamEvent extends BaseStreamEvent {
+  thread_id?: string;
   item?: {
+    id?: string;
     type: ItemType;
     text?: string;
     name?: string;
     command?: string;
+    status?: 'in_progress' | 'completed' | 'failed';
+    exit_code?: number;
+    aggregated_output?: string;
+  };
+  usage?: {
+    input_tokens?: number;
+    cached_input_tokens?: number;
+    output_tokens?: number;
   };
 }
 
 export interface ClaudeStreamEvent extends BaseStreamEvent {
   subtype?: string;
   message?: {
-    content: string | Array<{ text?: string }>;
+    role?: string;
+    content: string | Array<{
+      type?: string;
+      text?: string;
+      id?: string;
+      name?: string;
+      input?: Record<string, unknown>;
+      tool_use_id?: string;
+      content?: string;
+      is_error?: boolean;
+    }>;
   };
 }
 

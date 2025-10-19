@@ -6,6 +6,12 @@
 import { BaseParser } from './BaseParser.js';
 import type { CodexStreamEvent, StatusUpdate } from '../../../shared/types/index.js';
 import { truncate, getFilename } from '../../../shared/utils/index.js';
+import {
+  stripBashWrapper,
+  formatBashCommand,
+  isSearchCommand,
+  isEditCommand
+} from './CommandFormatter.js';
 
 /**
  * Codex-specific streaming event parser
@@ -25,9 +31,14 @@ export class CodexParser extends BaseParser {
    * Extract status message from Codex event
    */
   extractStatus(event: CodexStreamEvent): string | null {
+    // Thread started
+    if (this.hasType(event, 'thread.started')) {
+      return 'starting new session...';
+    }
+
     // Turn started
     if (this.hasType(event, 'turn.started')) {
-      return 'starting...';
+      return 'processing...';
     }
 
     // Turn completed
@@ -38,20 +49,29 @@ export class CodexParser extends BaseParser {
     // Item started - check for command execution
     if (this.hasType(event, 'item.started') && event.item) {
       if (event.item.type === 'command_execution' && event.item.command) {
-        return this.extractCommandInfo(event.item.command);
+        return this.extractCommandInfo(event.item.command, true);
       }
     }
 
     // Item completed - check for different types
     if (this.hasType(event, 'item.completed') && event.item) {
-      const { type, text, name } = event.item;
+      const { type, text, name, exit_code, status } = event.item;
 
-      if (type === 'reasoning' && text) {
-        return `thinking: ${truncate(text, 50)}`;
+      // Command execution completed
+      if (type === 'command_execution') {
+        return this.formatCommandCompletion(event.item.command, exit_code, status);
       }
 
+      // Reasoning
+      if (type === 'reasoning' && text) {
+        // Remove markdown bold markers and truncate
+        const cleanText = text.replace(/\*\*/g, '').trim();
+        return `thinking: ${truncate(cleanText, 70)}`;
+      }
+
+      // Tool call
       if (type === 'tool_call' && name) {
-        return `using tool: ${name}`;
+        return this.formatToolCall(name);
       }
     }
 
@@ -73,23 +93,68 @@ export class CodexParser extends BaseParser {
   /**
    * Extract command information and format status message
    */
-  private extractCommandInfo(command: string): string {
-    const fileOp = this.parseFileOperation(command);
+  private extractCommandInfo(command: string, isStarting: boolean = false): string {
+    const cleanCommand = stripBashWrapper(command);
+
+    const fileOp = this.parseFileOperation(cleanCommand);
     if (fileOp) return fileOp;
 
     // Search operations
-    if (this.isSearchCommand(command)) {
-      return 'searching files...';
+    if (isSearchCommand(cleanCommand)) {
+      return isStarting ? 'searching files...' : 'search complete';
     }
 
     // Edit operations
-    if (this.isEditCommand(command)) {
-      return 'editing file...';
+    if (isEditCommand(cleanCommand)) {
+      return isStarting ? 'editing file...' : 'edit complete';
     }
 
-    // Generic command execution
-    const cmdName = command.split(' ')[0];
-    return `executing: ${cmdName}`;
+    // Use shared formatter for other commands
+    if (isStarting) {
+      return formatBashCommand(cleanCommand, 'executing');
+    }
+
+    // Completion status
+    const cmdName = cleanCommand.split(' ')[0];
+    return `${cmdName} complete`;
+  }
+
+  /**
+   * Format command completion status
+   */
+  private formatCommandCompletion(
+    command: string | undefined,
+    exitCode: number | undefined,
+    status: string | undefined
+  ): string {
+    // Handle failed commands
+    if (status === 'failed' || (exitCode !== undefined && exitCode !== 0)) {
+      return `command failed (exit ${exitCode ?? 'unknown'})`;
+    }
+
+    // Handle successful completion
+    if (!command) {
+      return 'command completed';
+    }
+
+    const cleanCommand = stripBashWrapper(command);
+    const cmdName = cleanCommand.split(' ')[0];
+    return `${cmdName} completed`;
+  }
+
+  /**
+   * Format tool call status
+   */
+  private formatToolCall(toolName: string): string {
+    // Add specific formatting for known tools
+    const toolMap: Record<string, string> = {
+      'read_file': 'read file',
+      'write_file': 'wrote file',
+      'search_files': 'searched files',
+      'list_directory': 'listed directory',
+    };
+
+    return toolMap[toolName] || `used tool: ${toolName}`;
   }
 
   /**
@@ -115,21 +180,4 @@ export class CodexParser extends BaseParser {
     return null;
   }
 
-  /**
-   * Check if command is a search operation
-   */
-  private isSearchCommand(command: string): boolean {
-    const searchCommands = ['grep', 'find', 'ls', 'rg', 'fd'];
-    const cmdName = command.split(' ')[0];
-    return searchCommands.includes(cmdName);
-  }
-
-  /**
-   * Check if command is an edit operation
-   */
-  private isEditCommand(command: string): boolean {
-    const editCommands = ['vim', 'nano', 'edit', 'vi', 'emacs'];
-    const cmdName = command.split(' ')[0];
-    return editCommands.includes(cmdName);
-  }
 }

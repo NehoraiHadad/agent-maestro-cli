@@ -121,6 +121,9 @@ export class Delegator {
           sessionId: cliSession?.sessionId
         });
 
+        // Debug: log the exact command being executed
+        console.log(`[DEBUG] Delegator executing: ${agent.command} ${args.join(' ')}`);
+
         // Activate session for next time (if this is first interaction)
         if (!hasActiveSession && this.sessionManager) {
           this.sessionManager.activateCliSession(agent.name);
