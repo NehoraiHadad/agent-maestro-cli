@@ -17,7 +17,6 @@ interface StartCommandOptions {
   verbose?: boolean;
   spinner?: boolean;
   timeout?: string;
-  maxDepth?: string;
 }
 
 /**
@@ -35,8 +34,7 @@ export class StartCommand {
       .option('-m, --message <text>', 'single message to send (non-interactive mode)')
       .option('-v, --verbose', 'enable verbose logging')
       .option('--no-spinner', 'disable loading spinners')
-      .option('--timeout <ms>', 'delegation timeout in milliseconds', '60000')
-      .option('--max-depth <n>', 'max delegation depth', '3')
+      .option('--timeout <ms>', 'inactivity timeout in milliseconds', '60000')
       .action(async (options: StartCommandOptions) => {
         await this.execute(options);
       });
@@ -72,7 +70,6 @@ export class StartCommand {
       // Create configuration
       const config = {
         inactivityTimeout: parseInt(options.timeout || '60000'),
-        maxDelegationDepth: parseInt(options.maxDepth || '3'),
         showSpinner: options.spinner !== false,
         verbose: options.verbose || false
       };
@@ -94,19 +91,7 @@ export class StartCommand {
         console.log(result.content || '(no output)');
         this.logger.separator();
 
-        // Display delegation info if any
-        if (result.delegations && result.delegations.length > 0) {
-          this.logger.separator();
-          this.logger.info(`Delegations performed: ${result.delegations.length}`);
-          result.delegations.forEach((delegation, i) => {
-            this.logger.info(`${i + 1}. ${delegation.fromAgent} → ${delegation.toAgent}`);
-            this.logger.info(`   Task: ${delegation.prompt}`);
-            this.logger.info(`   Result: ${delegation.result.substring(0, 100)}...`);
-          });
-          this.logger.separator();
-        }
-
-        // Display exit code
+        // Display exit code if non-zero
         if (result.exitCode !== 0) {
           this.logger.warn(`Exit code: ${result.exitCode}`);
         }

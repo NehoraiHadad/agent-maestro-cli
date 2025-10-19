@@ -153,7 +153,6 @@ export class InteractiveSession {
     this.logger.separator();
     this.logger.maestro('Session ended');
     this.logger.info(`Total messages: ${stats.totalMessages}`);
-    this.logger.info(`Delegations: ${stats.totalDelegations}`);
     this.logger.info(`Duration: ${this.formatDuration(stats.sessionDuration)}`);
     this.logger.separator();
     this.logger.success('\nGoodbye! 👋\n');

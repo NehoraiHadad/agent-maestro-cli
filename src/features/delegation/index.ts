@@ -1,28 +1,5 @@
 /**
  * Delegation feature exports
+ * Simplified - only utilities remain
  */
-export { Delegator } from './Delegator.js';
-export { RequestValidator } from './RequestValidator.js';
-export { ResultFormatter } from './ResultFormatter.js';
 export { TimeoutManager } from './TimeoutManager.js';
-export { AgentSelector } from './AgentSelector.js';
-export { DelegationProtocolParser } from './DelegationProtocolParser.js';
-export { DelegationOrchestrator } from './DelegationOrchestrator.js';
-
-export type { DelegationConfig } from './Delegator.js';
-export type { ValidationResult } from './RequestValidator.js';
-export type {
-  TaskType,
-  Complexity,
-  TaskAnalysis,
-  AgentSelection
-} from './AgentSelector.js';
-export type {
-  ParsedDelegation,
-  ParallelDelegationGroup,
-  ParseResult
-} from './DelegationProtocolParser.js';
-export type {
-  DelegationResult,
-  OrchestratorConfig
-} from './DelegationOrchestrator.js';

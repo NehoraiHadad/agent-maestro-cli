@@ -1,15 +1,14 @@
 /**
  * Maestro.ts
- * Main orchestrator - coordinates all subsystems for agent execution
+ * Simplified orchestrator - coordinates agent execution with live subagent detection
  */
 
 import { Agent } from '../../domain/entities/index.js';
 import { AgentRepository } from '../../domain/index.js';
 import { PTYManager } from '../execution/pty/index.js';
-import { DelegationOrchestrator } from '../delegation/index.js';
 import { StreamProcessor } from '../streaming/index.js';
 import { OutputFormatter } from '../output/index.js';
-import { Spinner, StatusUpdater } from '../ui/index.js';
+import { Spinner, StatusUpdater, ConsoleLogger } from '../ui/index.js';
 import type { AgentName, AgentExecutionResult } from '../../shared/types/index.js';
 import { ConfigManager, MaestroConfig } from './ConfigManager.js';
 import { SessionManager } from './SessionManager.js';
@@ -17,24 +16,23 @@ import { LoggingManager } from '../logging/index.js';
 
 export interface MaestroStats {
   totalMessages: number;
-  totalDelegations: number;
   sessionDuration: number;
 }
 
 /**
- * Main orchestrator coordinating all features
+ * Main orchestrator coordinating agent execution
  */
 export class Maestro {
   private primaryAgent: Agent;
   private config: ConfigManager;
   private ptyManager: PTYManager;
-  private delegationOrchestrator: DelegationOrchestrator;
   private streamProcessor: StreamProcessor;
   private outputFormatter: OutputFormatter;
   private agentRepository: AgentRepository;
   private sessionManager: SessionManager;
   private statusUpdater: StatusUpdater;
   private loggingManager: LoggingManager;
+  private logger: ConsoleLogger;
   private spinner: Spinner | null = null;
   private isRunning: boolean = false;
 
@@ -50,6 +48,7 @@ export class Maestro {
     this.config = new ConfigManager(config);
     this.ptyManager = new PTYManager();
     this.sessionManager = new SessionManager();
+    this.logger = new ConsoleLogger();
 
     // Initialize logging manager
     this.loggingManager = new LoggingManager({
@@ -61,16 +60,6 @@ export class Maestro {
       maxLogSizeBytes: this.config.get('maxLogSizeBytes')
     });
 
-    this.delegationOrchestrator = new DelegationOrchestrator({
-      inactivityTimeout: this.config.get('inactivityTimeout'),
-      maxDepth: this.config.get('maxDelegationDepth'),
-      autoSuggest: true,
-      logDelegations: this.config.get('verbose')
-    });
-    // Connect session manager to delegation orchestrator for session continuity
-    this.delegationOrchestrator.setSessionManager(this.sessionManager);
-    // Connect logging manager to delegation orchestrator
-    this.delegationOrchestrator.setLoggingManager(this.loggingManager);
     this.streamProcessor = new StreamProcessor();
     this.outputFormatter = new OutputFormatter();
     this.statusUpdater = new StatusUpdater();
@@ -137,7 +126,6 @@ export class Maestro {
 
     // Cleanup subsystems
     this.ptyManager.killAll();
-    this.delegationOrchestrator.cleanup();
 
     // Close logging (this will log session end)
     await this.loggingManager.close();
@@ -159,7 +147,6 @@ export class Maestro {
     const summary = this.sessionManager.getSummary();
     return {
       totalMessages: summary.messageCount,
-      totalDelegations: summary.delegationMessages,
       sessionDuration: summary.duration
     };
   }
@@ -170,6 +157,24 @@ export class Maestro {
    */
   getLoggingManager(): LoggingManager {
     return this.loggingManager;
+  }
+
+  /**
+   * Detect if Claude Code is using a subagent (live detection)
+   */
+  private detectSubagentUsage(chunk: string): void {
+    // Detect Task tool usage for subagents
+    if (chunk.includes('codex-delegator') || chunk.includes('gemini-delegator')) {
+      // Extract which subagent
+      const agent = chunk.includes('codex-delegator') ? 'Codex' : 'Gemini';
+      this.logger.info(`🔄 [Live] Delegating to ${agent} subagent...`);
+      this.loggingManager.info('Maestro', `Detected subagent delegation to ${agent}`);
+    }
+
+    // Detect completion
+    if (chunk.includes('Task tool') && chunk.includes('completed')) {
+      this.logger.success(`✓ [Live] Subagent completed`);
+    }
   }
 
   /**
@@ -185,9 +190,6 @@ export class Maestro {
       processId,
       messageLength: message.length
     });
-
-    // Set current agent context for delegation orchestrator
-    this.delegationOrchestrator.setCurrentAgent(this.primaryAgent.name);
 
     // Start spinner
     if (this.spinner) {
@@ -207,10 +209,9 @@ export class Maestro {
         }
 
         // Get execution arguments with streaming and continuation support
-        // Include delegation prompt so primary agent knows when and how to delegate
+        // NO delegation prompt - Claude Code Skills/Subagents handle delegation
         const args = this.primaryAgent.getExecutionArgs(message, {
           stream: true,
-          includeDelegationPrompt: true,  // Enable delegation awareness for primary agent
           continueSession: hasActiveSession,
           sessionId: cliSession?.sessionId
         });
@@ -231,34 +232,19 @@ export class Maestro {
         // Setup event handlers
         this.setupEventHandlers(processId, (data) => {
           output += data;
+
+          // Live detection of subagent usage
+          this.detectSubagentUsage(data);
         });
 
-        // Handle exit - Process delegations AFTER agent completes
+        // Handle exit
         this.ptyManager.onExit(processId, async (exitInfo) => {
           exitCode = exitInfo.exitCode;
 
           try {
-            // Process delegations from complete output
-            const delegationResult = await this.delegationOrchestrator.processOutput(output);
-
-            // Format delegation feedback for agent context
-            const delegationFeedback = this.sessionManager.formatDelegationFeedback(
-              delegationResult.delegations.map(d => ({
-                agent: d.agent,
-                task: d.task,
-                result: d.result,
-                error: d.error,
-                pending: d.pending
-              }))
-            );
-
-            // Combine cleaned output with delegation feedback
-            const outputWithFeedback = delegationResult.cleanOutput +
-              (delegationFeedback ? '\n' + delegationFeedback : '');
-
-            // Format final output
+            // Format final output (no delegation processing needed)
             const cleanedOutput = this.outputFormatter.format(
-              outputWithFeedback,
+              output,
               this.primaryAgent.name
             );
 
@@ -275,8 +261,7 @@ export class Maestro {
             if (exitCode === 0) {
               this.loggingManager.logAgentExecution(this.primaryAgent.name, 'completed', {
                 exitCode,
-                outputLength: cleanedOutput.length,
-                delegationCount: delegationResult.delegations.length
+                outputLength: cleanedOutput.length
               });
             } else {
               this.loggingManager.logAgentExecution(this.primaryAgent.name, 'failed', {
@@ -291,42 +276,22 @@ export class Maestro {
             // Add assistant message to session
             this.sessionManager.addAssistantMessage(cleanedOutput, this.primaryAgent.name);
 
-            // Add delegation messages to session
-            // Count all delegations (including pending/failed) for statistics
-            for (const delegation of delegationResult.delegations) {
-              // For pending/background delegations, use placeholder result
-              const resultContent = delegation.pending
-                ? `[Background delegation to ${delegation.agent} started]`
-                : delegation.result || delegation.error || `[Delegation failed without result]`;
-
-              this.sessionManager.addDelegationMessage(
-                this.primaryAgent.name,
-                delegation.agent,
-                resultContent
-              );
-            }
-
-            // Resolve with result including delegations
+            // Resolve with result (no delegations)
             resolve({
               agent: this.primaryAgent.name,
               content: cleanedOutput,
-              delegations: delegationResult.delegations.map(d => ({
-                fromAgent: this.primaryAgent.name,
-                toAgent: d.agent,
-                prompt: d.task,
-                result: d.result || d.error || ''
-              })),
+              delegations: [], // Claude Code handles delegations via Skills/Subagents
               exitCode
             });
 
           } catch (error) {
             if (this.spinner) {
-              this.spinner.fail(`${this.primaryAgent.displayName}: delegation error`);
+              this.spinner.fail(`${this.primaryAgent.displayName}: error`);
             }
 
-            // Log delegation error
+            // Log error
             const errorMsg = error instanceof Error ? error.message : String(error);
-            this.loggingManager.error('Maestro', `Delegation processing failed: ${errorMsg}`, {
+            this.loggingManager.error('Maestro', `Output processing failed: ${errorMsg}`, {
               agent: this.primaryAgent.name,
               error: errorMsg
             });

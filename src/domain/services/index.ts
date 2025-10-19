@@ -1,4 +1,4 @@
 /**
  * Domain services exports
  */
-export { ProtocolService } from './ProtocolService.js';
+// No services currently exported

@@ -5,7 +5,6 @@
 
 import {
   DEFAULT_INACTIVITY_TIMEOUT,
-  DEFAULT_MAX_DELEGATION_DEPTH,
   DEFAULT_LOG_DIRECTORY,
   DEFAULT_LOG_LEVEL,
   DEFAULT_MAX_LOG_FILES,
@@ -17,10 +16,8 @@ import {
 
 export interface MaestroConfig {
   inactivityTimeout: number;
-  maxDelegationDepth: number;
   showSpinner: boolean;
   verbose: boolean;
-  includeDelegationPrompt: boolean;  // Include delegation system prompt in agent prompts
 
   // Logging configuration
   enableFileLogging: boolean;
@@ -90,20 +87,12 @@ export class ConfigManager {
       errors.push('inactivityTimeout must be greater than 0');
     }
 
-    if (this.config.maxDelegationDepth < 1 || this.config.maxDelegationDepth > 10) {
-      errors.push('maxDelegationDepth must be between 1 and 10');
-    }
-
     if (typeof this.config.showSpinner !== 'boolean') {
       errors.push('showSpinner must be a boolean');
     }
 
     if (typeof this.config.verbose !== 'boolean') {
       errors.push('verbose must be a boolean');
-    }
-
-    if (typeof this.config.includeDelegationPrompt !== 'boolean') {
-      errors.push('includeDelegationPrompt must be a boolean');
     }
 
     if (typeof this.config.enableFileLogging !== 'boolean') {
@@ -143,10 +132,8 @@ export class ConfigManager {
   static getDefaults(): MaestroConfig {
     return {
       inactivityTimeout: DEFAULT_INACTIVITY_TIMEOUT,
-      maxDelegationDepth: DEFAULT_MAX_DELEGATION_DEPTH,
       showSpinner: true,
       verbose: false,
-      includeDelegationPrompt: true,  // Enable delegation prompt by default
 
       // Logging defaults
       enableFileLogging: DEFAULT_ENABLE_FILE_LOGGING,

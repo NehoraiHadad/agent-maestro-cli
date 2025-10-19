@@ -71,19 +71,12 @@ export class Agent implements AgentType {
     prompt: string,
     options?: {
       stream?: boolean;
-      includeDelegationPrompt?: boolean;
       continueSession?: boolean;
       sessionId?: string;
     }
   ): string[] {
     const args: string[] = [];
-
-    // Optionally prepend delegation system prompt to user prompt
-    let finalPrompt = prompt;
-    if (options?.includeDelegationPrompt) {
-      const delegationPrompt = Agent.getDelegationSystemPrompt();
-      finalPrompt = `${delegationPrompt}\n\n---\n\nUser Request:\n${prompt}`;
-    }
+    const finalPrompt = prompt;
 
     // Handle Codex continuation specially (it's a different command structure)
     if (this.name === 'codex' && options?.continueSession) {
@@ -131,99 +124,6 @@ export class Agent implements AgentType {
     }
 
     return args;
-  }
-
-  /**
-   * Get the delegation system prompt for agents
-   * This can be prepended to agent prompts to teach them about delegation
-   */
-  static getDelegationSystemPrompt(): string {
-    return `# Delegation System
-
-You can delegate tasks to specialized agents using this protocol:
-
-## Available Agents:
-
-1. **Claude** - Best for:
-   - Complex architecture and design
-   - Refactoring and code restructuring
-   - Security audits and vulnerability analysis
-   - Deep codebase analysis (1M token context)
-   - Enterprise-grade solutions
-
-2. **Codex** - Best for:
-   - Fast code generation (90.2% HumanEval)
-   - Rapid prototyping
-   - Unit test creation
-   - Algorithm implementation
-   - Quick fixes and debugging
-
-3. **Gemini** - Best for:
-   - Web research and data gathering
-   - Browser automation
-   - Workflow automation
-   - Content generation
-   - Cost-effective solutions
-
-## Delegation Protocol:
-
-**Simple delegation:**
-\`\`\`
-[[DELEGATE:agent_name]]
-Task description here
-[[/DELEGATE]]
-\`\`\`
-
-**Advanced delegation with options:**
-\`\`\`
-[[DELEGATE:agent_name priority=high timeout=30000]]
-Task description here
-[[/DELEGATE]]
-\`\`\`
-
-**Background delegation (non-blocking):**
-\`\`\`
-[[DELEGATE:agent_name background=true]]
-Task description here
-[[/DELEGATE]]
-\`\`\`
-
-**Parallel delegations:**
-\`\`\`
-[[DELEGATE_PARALLEL]]
-[[DELEGATE:codex]]Task 1[[/DELEGATE]]
-[[DELEGATE:codex]]Task 2[[/DELEGATE]]
-[[/DELEGATE_PARALLEL]]
-\`\`\`
-
-## When to Delegate:
-
-- Delegate when a task is better suited for another agent's specialization
-- Consider delegation for tasks outside your core strengths
-- Use parallel delegation for independent tasks
-- Use background delegation when you can continue working while waiting
-- Maximum delegation depth is 3 levels
-
-## Examples:
-
-User: "Analyze the authentication system and implement improvements"
-You: "I'll break this into two parts:
-
-First, I'll delegate the analysis to Claude who excels at security analysis:
-[[DELEGATE:claude]]
-Analyze the authentication system architecture for security vulnerabilities and improvement opportunities
-[[/DELEGATE]]
-
-Then I can implement the recommended improvements based on the analysis results."
-
----
-
-User: "Create a new feature with tests and documentation"
-You: "I'll delegate these tasks in parallel for efficiency:
-[[DELEGATE_PARALLEL]]
-[[DELEGATE:codex]]Implement the feature with clean, tested code[[/DELEGATE]]
-[[DELEGATE:gemini]]Generate comprehensive documentation[[/DELEGATE]]
-[[/DELEGATE_PARALLEL]]"`;
   }
 
   /**

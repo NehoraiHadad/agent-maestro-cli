@@ -1,40 +1,39 @@
 # 🎭 AgentMaestro
 
-**Meta-orchestrator for collaborative AI coding agents**
+**Streamlined orchestrator for AI coding agents with Claude Code Skills integration**
 
-AgentMaestro enables seamless collaboration between Claude Code, Gemini CLI, and OpenAI Codex. Choose a primary agent, and it can intelligently delegate tasks to secondary agents - creating a powerful multi-agent development workflow.
+AgentMaestro provides a unified interface for Claude Code, Gemini CLI, and OpenAI Codex. When using Claude Code as your primary agent, AgentMaestro enhances it with intelligent delegation capabilities through Claude Code's Skills and Subagents system.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node.js Version](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)](https://nodejs.org/)
 
 ## ✨ Features
 
-- 🎯 **Intelligent Orchestration** - Primary agent coordinates with secondary agents
-- 🔄 **Seamless Delegation** - Simple protocol for inter-agent communication
+- 🎯 **Unified Interface** - Single CLI for Claude Code, Gemini CLI, and Codex
+- 🔄 **Claude Code Skills Integration** - Enhanced delegation through native Skills system
 - 🚀 **Zero Configuration** - Works with existing CLI tools out-of-the-box
 - 💬 **Interactive Mode** - User-friendly agent selection menu
-- 🔧 **Flexible** - Support for parallel delegation and depth control
+- 🔧 **Session Continuity** - Maintains conversation context across interactions
 - 📊 **Rich Logging** - Beautiful terminal output with progress indicators
+- 🔍 **Live Detection** - Real-time monitoring when Claude Code uses subagents
 
 ## 🎬 Quick Demo
 
 ```bash
 $ maestro --agent claude
 
-🎭 Agent Maestro
+🎭 Starting AgentMaestro with claude
 ═══════════════════════════════════════
-ℹ Primary agent: Claude Code
-ℹ Available for delegation: gemini, codex
 
 > Build a Flask todo app with security best practices
 
-[Claude plans architecture...]
-🎭 [Maestro] Delegating to codex
-  ✓ Codex completed task (2.8s)
+[Claude analyzes the request...]
+🔄 [Live] Delegating to Codex subagent...
+  ✓ [Live] Subagent completed
 
-[Claude reviews code...]
-🎭 [Maestro] Delegating to gemini
-  ✓ Gemini CLI completed task (4.1s)
+[Claude incorporates Codex's implementation...]
+🔄 [Live] Delegating to Gemini subagent...
+  ✓ [Live] Subagent completed
 
 [Final implementation ready!]
 ```
@@ -116,22 +115,15 @@ The skill will be installed to `~/.claude/skills/maestro-delegation-advisor/` an
 
 ### How it Works
 
-1. **Before Skills:** Claude delegates based on basic keywords or guesses
-2. **With Skills:** Claude uses expert decision framework with confidence scores
+The skill integrates with Claude Code's native Task tool system:
 
-```bash
-# Example: Security audit task
-$ maestro --agent claude
-> Analyze our authentication system for vulnerabilities
-
-# Without skill:
-Claude: "I'll check the code..."
-[[DELEGATE:codex]]  # ❌ Wrong choice!
-
-# With skill:
-Claude: "Security analysis requires Claude's expertise (92/100, 44% faster)"
-[[DELEGATE:claude]]  # ✅ Optimal choice!
-```
+1. **User requests a task** through AgentMaestro
+2. **Claude Code analyzes** using the delegation advisor skill
+3. **Skill recommends** the best agent (Codex or Gemini) based on task type
+4. **Claude uses Task tool** to delegate to the appropriate subagent
+5. **AgentMaestro detects** and displays delegation in real-time
+6. **Subagent completes task** in isolated context (no token contamination)
+7. **Claude incorporates result** into final response
 
 ### When to Use
 
@@ -179,59 +171,68 @@ maestro info claude
 # Verbose logging
 maestro --agent claude --verbose
 
-# Custom timeout (in milliseconds)
+# Custom inactivity timeout (in milliseconds)
 maestro --agent gemini --timeout 120000
 
-# Set maximum delegation depth
-maestro --agent codex --max-depth 5
+# Disable loading spinners
+maestro --agent claude --no-spinner
 ```
 
 ## 🎯 Use Cases
 
-### 1. Full-Stack Development
+### 1. Full-Stack Development with Claude Code
 
-**Primary: Claude** (for architecture) → **Codex** (for code) → **Gemini** (for research)
+**Claude Code** intelligently delegates implementation to Codex and research to Gemini
 
 ```bash
 $ maestro --agent claude
 > Build a secure authentication system with OAuth2
 ```
 
-### 2. Debugging Complex Issues
+Claude analyzes the architecture, delegates code generation to Codex subagent, and may consult Gemini for OAuth2 best practices.
 
-**Primary: Gemini** (for research) → **Codex** (for implementation)
+### 2. Direct Agent Usage
+
+**Use Gemini or Codex directly** when you know which agent you need
 
 ```bash
 $ maestro --agent gemini
-> Research WebSocket connection errors and implement fix
+> Research WebSocket connection errors in Node.js
+
+$ maestro --agent codex
+> Generate unit tests for auth.js
 ```
 
-### 3. Code Review & Testing
+### 3. Session Continuity
 
-**Primary: Claude** (for review) → **Codex** (for tests) → **Gemini** (for vulnerabilities)
+**Maintain context** across multiple interactions (Claude and Codex only)
 
 ```bash
 $ maestro --agent claude
-> Review auth.js, generate tests, check for security issues
+> Create a todo API
+> (Claude implements)
+> Now add rate limiting
+> (Claude continues with context from previous messages)
 ```
 
 ## 📖 Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) - System design and components
-- [Usage Guide](docs/USAGE.md) - Detailed usage instructions
-- [Delegation Protocol](docs/PROTOCOL.md) - Inter-agent communication spec
+- [Skills Documentation](.claude/skills/maestro-delegation-advisor/SKILL.md) - Delegation advisor skill details
+- [Subagents Documentation](.claude/agents/) - Codex and Gemini delegator configurations
 
 ## 🛠️ How It Works
 
-1. **User starts Maestro** with a primary agent
-2. **Primary agent receives** user's request
-3. **Agent decides** if it needs help from secondary agents
-4. **Emits delegation request** using the protocol:
-   ```
-   MAESTRO_DELEGATE::{"agent": "gemini", "prompt": "search Flask docs"}
-   ```
-5. **Maestro intercepts**, spawns secondary agent, and returns result
-6. **Primary agent** incorporates result and continues
+AgentMaestro provides a streamlined orchestration layer:
+
+1. **User starts Maestro** with their chosen agent
+2. **Agent receives** user's request in a PTY (pseudo-terminal) session
+3. **Session continuity** is maintained across multiple interactions (Claude/Codex)
+4. **When using Claude Code:**
+   - Claude Code Skills help decide when to delegate
+   - Claude uses its native Task tool to call Codex/Gemini subagents
+   - Subagents run in isolated contexts (token-efficient)
+   - AgentMaestro detects and displays delegation in real-time
+5. **All output is formatted** and streamed back to the user with progress indicators
 
 ## 🔧 Configuration
 
@@ -239,11 +240,11 @@ $ maestro --agent claude
 
 | Option | Description | Default |
 |--------|-------------|---------|
-| `-a, --agent <name>` | Primary agent name | Interactive menu |
+| `-a, --agent <name>` | Primary agent (claude, gemini, codex) | Interactive menu |
+| `-m, --message <text>` | Single message (non-interactive mode) | Interactive |
 | `-v, --verbose` | Enable debug logging | `false` |
 | `--no-spinner` | Disable loading indicators | Enabled |
-| `--timeout <ms>` | Delegation timeout | `60000` |
-| `--max-depth <n>` | Max delegation depth | `3` |
+| `--timeout <ms>` | Inactivity timeout | `60000` (60s) |
 
 ## 🤝 Contributing
 

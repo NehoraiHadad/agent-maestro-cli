@@ -5,25 +5,21 @@
  * from agent responses. Applies cleaning pipeline in order:
  * 1. Remove ANSI codes
  * 2. Remove agent metadata
- * 3. Remove delegation protocol strings
- * 4. Clean line breaks
- * 5. Trim whitespace
+ * 3. Clean line breaks
+ * 4. Trim whitespace
  */
 
 import type { AgentName } from '../../shared/types/index.js';
 import { AnsiCleaner } from './cleaners/AnsiCleaner.js';
 import { MetadataCleaner } from './cleaners/MetadataCleaner.js';
-import { DelegationCleaner } from './cleaners/DelegationCleaner.js';
 
 export class OutputFormatter {
   private ansiCleaner: AnsiCleaner;
   private metadataCleaner: MetadataCleaner;
-  private delegationCleaner: DelegationCleaner;
 
   constructor() {
     this.ansiCleaner = new AnsiCleaner();
     this.metadataCleaner = new MetadataCleaner();
-    this.delegationCleaner = new DelegationCleaner();
   }
 
   /**
@@ -38,7 +34,6 @@ export class OutputFormatter {
     let result = text;
     result = this.ansiCleaner.clean(result);
     result = this.metadataCleaner.clean(result, agentName);
-    result = this.delegationCleaner.clean(result);
     result = this.cleanLineBreaks(result);
     result = this.trim(result);
 
@@ -46,7 +41,7 @@ export class OutputFormatter {
   }
 
   /**
-   * Format text for display (keeps some formatting, removes protocols)
+   * Format text for display (keeps some formatting)
    */
   formatForDisplay(text: string, agentName: AgentName): string {
     if (!text) {
@@ -56,7 +51,6 @@ export class OutputFormatter {
     // Lighter cleaning for display - keep ANSI for terminal display
     let result = text;
     result = this.metadataCleaner.clean(result, agentName);
-    result = this.delegationCleaner.clean(result);
     result = this.cleanLineBreaks(result);
     result = this.trim(result);
 
@@ -75,7 +69,6 @@ export class OutputFormatter {
     let result = text;
     result = this.ansiCleaner.clean(result);
     result = this.metadataCleaner.clean(result, agentName);
-    result = this.delegationCleaner.clean(result);
     result = this.cleanLineBreaks(result);
     result = this.trim(result);
 

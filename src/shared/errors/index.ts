@@ -10,13 +10,6 @@ export {
   AgentConfigError
 } from './AgentErrors.js';
 export {
-  DelegationError,
-  DelegationTimeoutError,
-  MaxDelegationDepthError,
-  DelegationParseError,
-  InvalidDelegationRequestError
-} from './DelegationErrors.js';
-export {
   PTYError,
   PTYSpawnError,
   PTYProcessNotFoundError,

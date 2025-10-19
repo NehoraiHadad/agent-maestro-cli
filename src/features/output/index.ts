@@ -6,5 +6,4 @@
 
 export * from './cleaners/AnsiCleaner.js';
 export * from './cleaners/MetadataCleaner.js';
-export * from './cleaners/DelegationCleaner.js';
 export * from './OutputFormatter.js';
