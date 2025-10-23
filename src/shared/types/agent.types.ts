@@ -33,6 +33,7 @@ export interface AgentConfig {
   maxDelegationDepth?: number;
   showSpinner?: boolean;
   verbose?: boolean;
+  planMode?: boolean;
 }
 
 export interface AgentExecutionResult {

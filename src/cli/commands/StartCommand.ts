@@ -6,17 +6,15 @@
 import { Command } from 'commander';
 import { Maestro } from '../../features/orchestration/index.js';
 import { AgentRepository } from '../../domain/index.js';
-import { InteractiveMenu, InteractiveSession } from '../../features/ui/index.js';
+import { InteractiveSession } from '../../features/ui/index.js';
 import { ConsoleLogger } from '../../features/ui/index.js';
-import type { AgentName } from '../../shared/types/index.js';
-import { AgentNotFoundError } from '../../shared/errors/index.js';
 
 interface StartCommandOptions {
-  agent?: string;
   message?: string;
   verbose?: boolean;
   spinner?: boolean;
   timeout?: string;
+  planMode?: boolean;
 }
 
 /**
@@ -30,11 +28,11 @@ export class StartCommand {
    */
   static register(program: Command): void {
     program
-      .option('-a, --agent <name>', 'specify primary agent (claude, gemini, codex)')
       .option('-m, --message <text>', 'single message to send (non-interactive mode)')
       .option('-v, --verbose', 'enable verbose logging')
       .option('--no-spinner', 'disable loading spinners')
       .option('--timeout <ms>', 'inactivity timeout in milliseconds', '60000')
+      .option('--plan-mode', 'enable plan mode (research and planning without execution)')
       .action(async (options: StartCommandOptions) => {
         await this.execute(options);
       });
@@ -45,38 +43,36 @@ export class StartCommand {
    */
   static async execute(options: StartCommandOptions): Promise<void> {
     try {
-      // Select agent (from option or interactive menu)
-      const agentName = options.agent
-        ? options.agent
-        : await this.selectAgent();
+      // Always use Claude as the agent
+      const agentName = 'claude';
 
-      // Check agent availability
+      // Check Claude availability
       const available = await this.checkAvailability(agentName);
       if (!available) {
-        this.logger.error(`\nAgent '${agentName}' is not installed.`);
+        this.logger.error(`\nClaude Code is not installed.`);
         this.showInstallationInstructions(agentName);
         process.exit(1);
-      }
-
-      // Warn about Gemini's lack of session continuity
-      if (agentName === 'gemini') {
-        this.logger.separator();
-        this.logger.warn('⚠️  Note: Gemini does not support session continuity.');
-        this.logger.warn('   Each message will be treated as a new conversation.');
-        this.logger.warn('   For better context preservation, consider using Claude or Codex.');
-        this.logger.separator();
       }
 
       // Create configuration
       const config = {
         inactivityTimeout: parseInt(options.timeout || '60000'),
         showSpinner: options.spinner !== false,
-        verbose: options.verbose || false
+        verbose: options.verbose || false,
+        planMode: options.planMode || false,
+        interactive: !options.message // Interactive if no message provided
       };
 
+      // Show Plan Mode indicator if enabled
+      if (config.planMode) {
+        this.logger.separator();
+        this.logger.info('📋 Plan Mode enabled - Claude will research and plan without executing changes');
+        this.logger.separator();
+      }
+
       // Create and start Maestro
-      this.logger.header(`Starting AgentMaestro with ${agentName}`);
-      const maestro = new Maestro(agentName as AgentName, config);
+      this.logger.header('Starting AgentMaestro with Claude Code');
+      const maestro = new Maestro(config);
       await maestro.start();
 
       // Non-interactive mode: send single message and exit
@@ -106,26 +102,9 @@ export class StartCommand {
       }
 
     } catch (error) {
-      if (error instanceof AgentNotFoundError) {
-        this.logger.error(`\n${error.message}`);
-        this.logger.info('\nUse "maestro list" to see available agents.');
-      } else {
-        this.logger.error(`\nError: ${error instanceof Error ? error.message : String(error)}`);
-      }
+      this.logger.error(`\nError: ${error instanceof Error ? error.message : String(error)}`);
       process.exit(1);
     }
-  }
-
-  /**
-   * Prompt user to select an agent interactively
-   */
-  private static async selectAgent(): Promise<string> {
-    const repository = new AgentRepository();
-    const agents = repository.findAll();
-    const menu = new InteractiveMenu();
-
-    this.logger.info('Select an agent to start orchestration:\n');
-    return await menu.selectAgent(agents);
   }
 
   /**

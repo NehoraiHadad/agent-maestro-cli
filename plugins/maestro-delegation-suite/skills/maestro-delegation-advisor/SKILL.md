@@ -79,6 +79,8 @@ Invoke this skill whenever you encounter a task that might benefit from delegati
 **How to delegate in Claude Code:**
 Simply recognize the task matches Codex's strengths, and Claude Code will automatically invoke the `codex-delegator` subagent!
 
+> **Operational note:** The delegated subagent runs `codex --dangerously-bypass-approvals-and-sandbox exec "..."` so the command executes without approval prompts or sandbox restrictions. Only delegate to Codex when you trust the workspace.
+
 ---
 
 ### Gemini (Automation & Research Specialist)
@@ -229,7 +231,7 @@ I'll perform the security audit myself:
 This is a code generation task perfect for Codex. Let me delegate this...
 
 [Claude Code automatically invokes codex-delegator subagent]
-[Subagent executes: codex exec "Implement user login function..."]
+[Subagent executes: codex --dangerously-bypass-approvals-and-sandbox exec "Implement user login function..."]
 [Result returned without consuming your tokens!]
 
 Here's the implementation Codex generated...

@@ -8,8 +8,8 @@ import { AgentRepository } from '../../domain/index.js';
 import { PTYManager } from '../execution/pty/index.js';
 import { StreamProcessor } from '../streaming/index.js';
 import { OutputFormatter } from '../output/index.js';
-import { Spinner, StatusUpdater, ConsoleLogger } from '../ui/index.js';
-import type { AgentName, AgentExecutionResult } from '../../shared/types/index.js';
+import { Spinner, StatusUpdater } from '../ui/index.js';
+import type { AgentExecutionResult } from '../../shared/types/index.js';
 import { ConfigManager, MaestroConfig } from './ConfigManager.js';
 import { SessionManager } from './SessionManager.js';
 import { LoggingManager } from '../logging/index.js';
@@ -21,6 +21,7 @@ export interface MaestroStats {
 
 /**
  * Main orchestrator coordinating agent execution
+ * Always uses Claude as the primary agent
  */
 export class Maestro {
   private primaryAgent: Agent;
@@ -32,23 +33,21 @@ export class Maestro {
   private sessionManager: SessionManager;
   private statusUpdater: StatusUpdater;
   private loggingManager: LoggingManager;
-  private logger: ConsoleLogger;
   private spinner: Spinner | null = null;
   private isRunning: boolean = false;
 
   /**
    * Create a new Maestro orchestrator
-   * @param primaryAgentName - Name of the primary agent to use
+   * Always uses Claude as the primary agent
    * @param config - Optional configuration
    */
-  constructor(primaryAgentName: AgentName, config?: Partial<MaestroConfig>) {
+  constructor(config?: Partial<MaestroConfig>) {
     this.agentRepository = new AgentRepository();
-    this.primaryAgent = this.agentRepository.findByName(primaryAgentName);
+    this.primaryAgent = this.agentRepository.findByName('claude');
 
     this.config = new ConfigManager(config);
     this.ptyManager = new PTYManager();
     this.sessionManager = new SessionManager();
-    this.logger = new ConsoleLogger();
 
     // Initialize logging manager
     this.loggingManager = new LoggingManager({
@@ -62,7 +61,7 @@ export class Maestro {
 
     this.streamProcessor = new StreamProcessor();
     this.outputFormatter = new OutputFormatter();
-    this.statusUpdater = new StatusUpdater();
+    this.statusUpdater = new StatusUpdater(undefined, this.loggingManager);
   }
 
   /**
@@ -159,23 +158,6 @@ export class Maestro {
     return this.loggingManager;
   }
 
-  /**
-   * Detect if Claude Code is using a subagent (live detection)
-   */
-  private detectSubagentUsage(chunk: string): void {
-    // Detect Task tool usage for subagents
-    if (chunk.includes('codex-delegator') || chunk.includes('gemini-delegator')) {
-      // Extract which subagent
-      const agent = chunk.includes('codex-delegator') ? 'Codex' : 'Gemini';
-      this.logger.info(`🔄 [Live] Delegating to ${agent} subagent...`);
-      this.loggingManager.info('Maestro', `Detected subagent delegation to ${agent}`);
-    }
-
-    // Detect completion
-    if (chunk.includes('Task tool') && chunk.includes('completed')) {
-      this.logger.success(`✓ [Live] Subagent completed`);
-    }
-  }
 
   /**
    * Execute the primary agent with streaming
@@ -198,22 +180,40 @@ export class Maestro {
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
       try {
-        // Check if we have an active CLI session for continuation
+        // Check if we should use --continue flag:
+        // ONLY in interactive mode AND after the first message (when session is active)
+        // NON-interactive mode (--message flag): Each call is independent, no continuation
+        const isInteractive = this.config.get('interactive');
         const cliSession = this.sessionManager.getCliSession(this.primaryAgent.name);
-        const hasActiveSession = cliSession?.isActive ?? false;
+
+        // Continue session ONLY if:
+        // 1. We're in interactive mode (not using -m flag)
+        // 2. AND we have an active session (not the first message)
+        const shouldContinueSession = isInteractive && (cliSession?.isActive ?? false);
+
+        // Prefer using explicit Session ID when available for better reliability
+        // This ensures we always continue the SAME conversation, even if user
+        // opened other Claude sessions in different terminals
+        const sessionId = cliSession?.sessionId;
+        const useSessionId = shouldContinueSession && !!sessionId;
 
         // Debug logging
         if (this.config.get('verbose')) {
-          console.log(`[DEBUG] Has active session: ${hasActiveSession}`);
-          console.log(`[DEBUG] Session ID: ${cliSession?.sessionId || 'none'}`);
+          console.log(`[DEBUG] Interactive mode: ${isInteractive}`);
+          console.log(`[DEBUG] CLI session active: ${cliSession?.isActive ?? false}`);
+          console.log(`[DEBUG] Should continue session: ${shouldContinueSession}`);
+          console.log(`[DEBUG] Session ID: ${sessionId || 'none'}`);
+          console.log(`[DEBUG] Using --resume with ID: ${useSessionId}`);
         }
 
-        // Get execution arguments with streaming and continuation support
+        // Get execution arguments with streaming, continuation, and plan mode support
         // NO delegation prompt - Claude Code Skills/Subagents handle delegation
+        // Prefer --resume <sessionId> over --continue for reliability
         const args = this.primaryAgent.getExecutionArgs(message, {
           stream: true,
-          continueSession: hasActiveSession,
-          sessionId: cliSession?.sessionId
+          continueSession: shouldContinueSession,
+          sessionId: useSessionId ? sessionId : undefined, // Only pass if we want to use it
+          planMode: this.config.get('planMode')
         });
 
         // Debug logging
@@ -221,8 +221,9 @@ export class Maestro {
           console.log(`[DEBUG] Command args: ${this.primaryAgent.command} ${args.join(' ')}`);
         }
 
-        // Activate session for next time (if this is first interaction)
-        if (!hasActiveSession) {
+        // Activate session for next time (if this is first interaction in interactive mode)
+        // This ensures the NEXT message will use --continue
+        if (isInteractive && !shouldContinueSession) {
           this.sessionManager.activateCliSession(this.primaryAgent.name);
         }
 
@@ -232,9 +233,6 @@ export class Maestro {
         // Setup event handlers
         this.setupEventHandlers(processId, (data) => {
           output += data;
-
-          // Live detection of subagent usage
-          this.detectSubagentUsage(data);
         });
 
         // Handle exit
@@ -242,6 +240,42 @@ export class Maestro {
           exitCode = exitInfo.exitCode;
 
           try {
+            // Try extracting Session ID one final time from complete output
+            // (in case we missed it during streaming)
+            const currentSession = this.sessionManager.getCliSession(this.primaryAgent.name);
+            if (!currentSession?.sessionId) {
+              const sessionIdPatterns = [
+                /Session ID:\s*([a-zA-Z0-9_-]+)/i,           // Standard format
+                /session[_-]id[:\s]+([a-zA-Z0-9_-]+)/i,      // Alternative formats
+                /\bsession_([a-zA-Z0-9_-]{8,})\b/i           // session_<uuid> format
+              ];
+
+              let extractedSessionId: string | null = null;
+
+              for (const pattern of sessionIdPatterns) {
+                const match = output.match(pattern);
+                if (match && match[1]) {
+                  extractedSessionId = match[1];
+                  break;
+                }
+              }
+
+              if (extractedSessionId) {
+                this.loggingManager.debug('Maestro', `Extracted Session ID in onExit: ${extractedSessionId}`);
+                this.loggingManager.info('Maestro', `Session ID detected: ${extractedSessionId}`);
+
+                // Update session with the actual session ID
+                this.sessionManager.setCliSession(this.primaryAgent.name, {
+                  sessionId: extractedSessionId,
+                  isActive: true
+                });
+              } else if (this.config.get('verbose')) {
+                this.loggingManager.debug('Maestro', 'No session ID found in final output');
+              }
+            } else if (this.config.get('verbose')) {
+              this.loggingManager.debug('Maestro', `Session ID already captured: ${currentSession.sessionId}`);
+            }
+
             // Format final output (no delegation processing needed)
             const cleanedOutput = this.outputFormatter.format(
               output,
@@ -327,6 +361,10 @@ export class Maestro {
     this.ptyManager.onData(processId, async (data: string) => {
       onData(data);
 
+      // Try to extract Session ID early (during streaming)
+      // This ensures we have the Session ID for the NEXT message
+      this.tryExtractSessionId(data);
+
       // Process streaming events for status updates
       const lines = data.split('\n');
       for (const line of lines) {
@@ -341,5 +379,69 @@ export class Maestro {
         }
       }
     });
+  }
+
+  /**
+   * Try to extract Session ID from streaming output
+   * Called during streaming to catch Session ID as early as possible
+   */
+  private tryExtractSessionId(data: string): void {
+    // Claude Code outputs session ID in format: "Session ID: <uuid>"
+    // We want to extract this ASAP so it's available for the next message
+    const sessionIdPatterns = [
+      /Session ID:\s*([a-zA-Z0-9_-]+)/i,           // Standard format
+      /session[_-]id[:\s]+([a-zA-Z0-9_-]+)/i,      // Alternative formats
+      /\bsession_([a-zA-Z0-9_-]{8,})\b/i           // session_<uuid> format
+    ];
+
+    for (const pattern of sessionIdPatterns) {
+      const match = data.match(pattern);
+      if (match && match[1]) {
+        const extractedSessionId = match[1];
+        const currentSession = this.sessionManager.getCliSession(this.primaryAgent.name);
+
+        // Only update if we don't have a session ID yet or if it's different
+        if (!currentSession?.sessionId || currentSession.sessionId !== extractedSessionId) {
+          this.loggingManager.debug('Maestro', `Extracted Session ID during streaming: ${extractedSessionId}`);
+
+          this.sessionManager.setCliSession(this.primaryAgent.name, {
+            sessionId: extractedSessionId,
+            isActive: true
+          });
+        }
+        break;
+      }
+    }
+  }
+
+  /**
+   * Toggle Plan Mode on/off
+   * @returns New Plan Mode state
+   */
+  togglePlanMode(): boolean {
+    const currentState = this.config.get('planMode');
+    const newState = !currentState;
+    this.config.set('planMode', newState);
+
+    this.loggingManager.info('Maestro', `Plan Mode ${newState ? 'enabled' : 'disabled'}`);
+
+    return newState;
+  }
+
+  /**
+   * Check if Plan Mode is currently enabled
+   * @returns True if Plan Mode is enabled
+   */
+  isPlanMode(): boolean {
+    return this.config.get('planMode');
+  }
+
+  /**
+   * Reset the current session
+   * Clears the CLI session to start a fresh conversation
+   */
+  resetSession(): void {
+    this.loggingManager.info('Maestro', 'Resetting session');
+    this.sessionManager.clearCliSession(this.primaryAgent.name);
   }
 }

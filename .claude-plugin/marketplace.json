@@ -1,0 +1,29 @@
+{
+  "name": "agent-maestro",
+  "owner": {
+    "name": "AgentMaestro",
+    "email": "[email protected]"
+  },
+  "metadata": {
+    "description": "Official AgentMaestro plugin marketplace for Claude Code.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "maestro-delegation-suite",
+      "description": "Delegate command, Codex/Gemini subagents, and delegation advisor skill used by AgentMaestro.",
+      "version": "1.0.0",
+      "source": "./plugins/maestro-delegation-suite",
+      "author": {
+        "name": "AgentMaestro Team"
+      },
+      "keywords": [
+        "claude-code",
+        "agentmaestro",
+        "delegation",
+        "subagents",
+        "skills"
+      ]
+    }
+  ]
+}

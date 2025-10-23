@@ -1,28 +1,59 @@
 /**
- * Interactive Session - handles REPL-style user interaction
+ * Interactive Session - orchestrates REPL-style user interaction
+ * Delegates specific responsibilities to specialized components
  */
 import * as readline from 'readline';
-import chalk from 'chalk';
 import type { Maestro } from '../orchestration/Maestro.js';
 import { ConsoleLogger } from './logger/ConsoleLogger.js';
 import type { LoggingManager } from '../logging/index.js';
+import {
+  KeypressHandler,
+  PromptFormatter,
+  MessageProcessor,
+  SessionDisplay,
+  InputValidator,
+  SessionCommands
+} from './session/index.js';
 
+/**
+ * Main interactive session coordinator
+ */
 export class InteractiveSession {
   private rl: readline.Interface;
   private maestro: Maestro;
   private logger: ConsoleLogger;
   private loggingManager: LoggingManager;
+
+  // Component delegates
+  private keypressHandler: KeypressHandler;
+  private promptFormatter: PromptFormatter;
+  private messageProcessor: MessageProcessor;
+  private sessionDisplay: SessionDisplay;
+  private inputValidator: InputValidator;
+  private sessionCommands: SessionCommands;
+
   private isActive: boolean = false;
 
   constructor(maestro: Maestro) {
     this.maestro = maestro;
     this.logger = new ConsoleLogger();
     this.loggingManager = maestro.getLoggingManager();
+
+    // Initialize components
+    this.promptFormatter = new PromptFormatter();
+    this.sessionDisplay = new SessionDisplay(this.logger);
+    this.inputValidator = new InputValidator();
+    this.messageProcessor = new MessageProcessor(this.maestro, this.logger);
+    this.sessionCommands = new SessionCommands(this.maestro, this.logger);
+
+    // Initialize readline
     this.rl = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
-      prompt: chalk.cyan.bold('\nYou > ')
+      prompt: this.getPrompt()
     });
+
+    this.keypressHandler = new KeypressHandler(this.maestro, this.rl, this.logger);
   }
 
   /**
@@ -31,50 +62,80 @@ export class InteractiveSession {
   async start(): Promise<void> {
     this.isActive = true;
 
-    // Show welcome message
-    this.logger.separator();
-    this.logger.success('🎭 AgentMaestro session started!');
-    this.logger.info('Type your messages below. Type "exit" or "quit" to end the session.\n');
-    this.logger.separator();
+    // Setup keyboard shortcuts
+    this.setupKeyboardShortcuts();
 
-    // Prompt for first input
+    // Show welcome message
+    this.sessionDisplay.showWelcome();
+
+    // Start prompt
     this.rl.prompt();
 
-    // Setup line handler
+    // Setup input handling
+    this.setupInputHandling();
+
+    // Setup signal handling
+    this.setupSignalHandling();
+  }
+
+  /**
+   * Setup keyboard shortcuts (Shift+Tab, Ctrl+C, Ctrl+D)
+   */
+  private setupKeyboardShortcuts(): void {
+    this.keypressHandler.setup({
+      onPlanModeToggle: () => this.updatePrompt(),
+      onInterrupt: () => {}, // Handled by keypress handler
+      onEOF: () => this.stop()
+    });
+  }
+
+  /**
+   * Setup input line handling
+   */
+  private setupInputHandling(): void {
     this.rl.on('line', async (input: string) => {
       const trimmed = input.trim();
-      this.loggingManager.debug('InteractiveSession', `Line received: "${trimmed.substring(0, 50)}...", isActive: ${this.isActive}`);
+      this.loggingManager.debug('InteractiveSession', `Received: "${trimmed.substring(0, 50)}..."`);
 
       // Check for exit commands
-      if (this.isExitCommand(trimmed)) {
-        this.loggingManager.debug('InteractiveSession', 'Exit command detected');
+      if (this.inputValidator.isExitCommand(trimmed)) {
         await this.stop();
         return;
       }
 
       // Skip empty input
-      if (!trimmed) {
-        this.loggingManager.debug('InteractiveSession', 'Empty input, prompting again');
+      if (this.inputValidator.isEmpty(trimmed)) {
+        this.rl.prompt();
+        return;
+      }
+
+      // Check for session commands (/reset, /session-info, etc.)
+      if (this.sessionCommands.isSessionCommand(trimmed)) {
+        await this.sessionCommands.execute(trimmed);
         this.rl.prompt();
         return;
       }
 
       // Process the message
-      this.loggingManager.debug('InteractiveSession', 'Processing message...');
-      await this.processMessage(trimmed);
-      this.loggingManager.debug('InteractiveSession', 'Message processing complete');
+      await this.messageProcessor.process(
+        trimmed,
+        () => this.rl.pause(),
+        () => this.rl.resume()
+      );
 
       // Prompt for next input
       if (this.isActive) {
-        this.loggingManager.debug('InteractiveSession', 'Prompting for next input');
         this.rl.prompt();
-      } else {
-        this.loggingManager.debug('InteractiveSession', 'Session no longer active, not prompting');
       }
     });
+  }
 
+  /**
+   * Setup signal handling (Ctrl+C, stream close)
+   */
+  private setupSignalHandling(): void {
     // Handle Ctrl+C
-    this.rl.on('SIGINT', async () => {
+    this.rl.on('SIGINT', () => {
       console.log('\n');
       this.logger.warn('Interrupted. Type "exit" to quit gracefully.');
       this.rl.prompt();
@@ -82,58 +143,10 @@ export class InteractiveSession {
 
     // Handle stream end
     this.rl.on('close', async () => {
-      this.loggingManager.debug('InteractiveSession', 'readline close event triggered');
       if (this.isActive) {
         await this.stop();
       }
     });
-  }
-
-  /**
-   * Process a user message
-   */
-  private async processMessage(message: string): Promise<void> {
-    try {
-      // Pause readline to prevent conflicts with agent output
-      this.rl.pause();
-
-      // Send message to Maestro
-      const result = await this.maestro.sendMessage(message);
-
-      // Display response
-      console.log('\n' + chalk.magenta.bold(`${result.agent} > `));
-      console.log(result.content);
-
-      // Show delegations if any
-      if (result.delegations && result.delegations.length > 0) {
-        console.log('\n' + chalk.cyan('━'.repeat(60)));
-        console.log(chalk.cyan(`✨ ${result.delegations.length} delegation(s) executed`));
-        console.log(chalk.cyan('━'.repeat(60)));
-      }
-
-      // Resume readline for next input
-      this.rl.resume();
-
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      this.logger.error(`\n❌ Error: ${errorMsg}`);
-
-      // Log error with stack trace
-      if (error instanceof Error && error.stack) {
-        this.logger.debug(error.stack);
-        this.loggingManager.error('InteractiveSession', 'Message processing failed', {
-          error: errorMsg,
-          stack: error.stack
-        });
-      } else {
-        this.loggingManager.error('InteractiveSession', 'Message processing failed', {
-          error: errorMsg
-        });
-      }
-
-      // Resume readline even on error
-      this.rl.resume();
-    }
   }
 
   /**
@@ -146,16 +159,12 @@ export class InteractiveSession {
 
     this.isActive = false;
 
+    // Cleanup keypress handler
+    this.keypressHandler.cleanup();
+
     // Show session summary
     const stats = this.maestro.getStats();
-
-    console.log('\n');
-    this.logger.separator();
-    this.logger.maestro('Session ended');
-    this.logger.info(`Total messages: ${stats.totalMessages}`);
-    this.logger.info(`Duration: ${this.formatDuration(stats.sessionDuration)}`);
-    this.logger.separator();
-    this.logger.success('\nGoodbye! 👋\n');
+    this.sessionDisplay.showSummary(stats);
 
     // Cleanup
     await this.maestro.stop();
@@ -164,27 +173,16 @@ export class InteractiveSession {
   }
 
   /**
-   * Check if input is an exit command
+   * Get the current prompt based on Plan Mode state
    */
-  private isExitCommand(input: string): boolean {
-    const exitCommands = ['exit', 'quit', 'q', 'bye'];
-    return exitCommands.includes(input.toLowerCase());
+  private getPrompt(): string {
+    return this.promptFormatter.getPrompt(this.maestro.isPlanMode());
   }
 
   /**
-   * Format duration in human-readable format
+   * Update the readline prompt
    */
-  private formatDuration(ms: number): string {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-
-    if (hours > 0) {
-      return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${seconds % 60}s`;
-    } else {
-      return `${seconds}s`;
-    }
+  private updatePrompt(): void {
+    this.rl.setPrompt(this.getPrompt());
   }
 }

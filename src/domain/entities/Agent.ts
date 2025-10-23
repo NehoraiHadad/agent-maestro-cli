@@ -66,6 +66,24 @@ export class Agent implements AgentType {
 
   /**
    * Get command arguments for execution
+   *
+   * @param prompt - The user's message/prompt
+   * @param options - Execution options
+   * @param options.stream - Enable streaming output (default: false)
+   * @param options.continueSession - Continue previous session (ONLY in interactive mode)
+   * @param options.sessionId - Specific session ID to resume (optional)
+   * @param options.planMode - Enable plan mode (research without execution)
+   *
+   * @returns Command arguments array ready for execution
+   *
+   * @remarks
+   * The `continueSession` flag should ONLY be true in interactive mode.
+   * In non-interactive mode (using -m flag), each call should be independent.
+   *
+   * Session continuation behavior:
+   * - Claude: Uses `--continue` (last session) or `--resume <sessionId>`
+   * - Codex: Uses `resume --last` or `resume <sessionId>`
+   * - Gemini: Handles sessions automatically via `--prompt-interactive`
    */
   getExecutionArgs(
     prompt: string,
@@ -73,9 +91,15 @@ export class Agent implements AgentType {
       stream?: boolean;
       continueSession?: boolean;
       sessionId?: string;
+      planMode?: boolean;
     }
   ): string[] {
     const args: string[] = [];
+
+    // Ensure Codex always runs with full-access flag so it won't block on prompts
+    if (this.name === 'codex') {
+      args.push('--dangerously-bypass-approvals-and-sandbox');
+    }
     const finalPrompt = prompt;
 
     // Handle Codex continuation specially (it's a different command structure)
@@ -108,6 +132,11 @@ export class Agent implements AgentType {
       } else {
         args.push('--continue');
       }
+    }
+
+    // Handle Claude Plan Mode
+    if (this.name === 'claude' && options?.planMode) {
+      args.push('--permission-mode', 'plan');
     }
     // Gemini handles sessions automatically via --prompt-interactive
 

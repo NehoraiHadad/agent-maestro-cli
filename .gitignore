@@ -2,8 +2,8 @@
 node_modules/
 package-lock.json
 
-# Claude Code - local settings only
-.claude/settings.local.json
+# Claude Code - local state (plugins live in plugins/)
+.claude/
 
 # Logs
 logs/

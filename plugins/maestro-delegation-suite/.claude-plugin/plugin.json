@@ -1,0 +1,28 @@
+{
+  "name": "maestro-delegation-suite",
+  "version": "1.0.0",
+  "description": "Provides AgentMaestro's delegation workflow to Claude Code (delegate command, subagents, and advisor skill).",
+  "author": {
+    "name": "AgentMaestro"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/agentmaestro/AgentMaestro",
+  "repository": "https://github.com/agentmaestro/AgentMaestro",
+  "keywords": [
+    "agentmaestro",
+    "claude-code",
+    "delegation",
+    "agents",
+    "skills"
+  ],
+  "commands": [
+    "./commands/delegate.md"
+  ],
+  "agents": [
+    "./agents/codex-delegator.md",
+    "./agents/gemini-delegator.md"
+  ],
+  "skills": [
+    "./skills/maestro-delegation-advisor"
+  ]
+}

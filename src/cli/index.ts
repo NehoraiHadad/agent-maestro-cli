@@ -10,6 +10,8 @@ import { StartCommand } from './commands/StartCommand.js';
 import { ListCommand } from './commands/ListCommand.js';
 import { InfoCommand } from './commands/InfoCommand.js';
 import { SkillsCommand } from './commands/SkillsCommand.js';
+import { InitCommand } from './commands/InitCommand.js';
+import { DelegateCommand } from './commands/DelegateCommand.js';
 
 const program = new Command();
 
@@ -20,6 +22,8 @@ program
 
 // Register commands
 StartCommand.register(program);
+InitCommand.register(program);
+DelegateCommand.register(program);
 ListCommand.register(program);
 InfoCommand.register(program);
 SkillsCommand.register(program);

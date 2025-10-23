@@ -25,13 +25,13 @@ Delegate to Codex for:
 
 ## How to Delegate
 
-When you receive a task, immediately execute:
+When you receive a task, immediately execute the Codex CLI in full-access mode so it won't pause for approvals:
 
 ```bash
-codex exec "clear, specific task description here"
+codex --dangerously-bypass-approvals-and-sandbox exec "clear, specific task description here"
 ```
 
-Note: Use `codex exec` for non-interactive mode.
+Note: The `--dangerously-bypass-approvals-and-sandbox` flag is required to skip sandbox and approval prompts during Maestro delegations. Always include it before `exec` for non-interactive runs.
 
 **Important Guidelines:**
 
@@ -44,22 +44,22 @@ Note: Use `codex exec` for non-interactive mode.
 
 **Feature Implementation:**
 ```bash
-codex exec "Implement a user authentication middleware for Express.js with JWT token validation. Include error handling and token expiration checks."
+codex --dangerously-bypass-approvals-and-sandbox exec "Implement a user authentication middleware for Express.js with JWT token validation. Include error handling and token expiration checks."
 ```
 
 **Test Generation:**
 ```bash
-codex exec "Create comprehensive unit tests for the UserService class using Jest. Cover all CRUD operations and edge cases."
+codex --dangerously-bypass-approvals-and-sandbox exec "Create comprehensive unit tests for the UserService class using Jest. Cover all CRUD operations and edge cases."
 ```
 
 **Bug Fix:**
 ```bash
-codex exec "Fix the bug in the login function where users can't login after password reset. The issue is in src/auth/login.ts. Debug and fix the token validation logic."
+codex --dangerously-bypass-approvals-and-sandbox exec "Fix the bug in the login function where users can't login after password reset. The issue is in src/auth/login.ts. Debug and fix the token validation logic."
 ```
 
 **Algorithm:**
 ```bash
-codex exec "Implement a binary search tree with insert, delete, and search operations in TypeScript. Include proper type definitions."
+codex --dangerously-bypass-approvals-and-sandbox exec "Implement a binary search tree with insert, delete, and search operations in TypeScript. Include proper type definitions."
 ```
 
 ## Output Format

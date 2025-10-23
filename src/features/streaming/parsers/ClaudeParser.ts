@@ -12,6 +12,7 @@ import { formatBashCommand, extractFilename } from './CommandFormatter.js';
  * Claude-specific streaming event parser
  */
 export class ClaudeParser extends BaseParser {
+  private activeDelegations: Set<string> = new Set();
   /**
    * Parse Claude streaming event into status update
    */
@@ -29,6 +30,8 @@ export class ClaudeParser extends BaseParser {
     // System initialization
     if (this.hasType(event, 'system')) {
       if (event.subtype === 'init') {
+        // Clear delegations when starting new conversation
+        this.clearDelegations();
         return 'initializing...';
       }
     }
@@ -45,6 +48,8 @@ export class ClaudeParser extends BaseParser {
 
     // Result (completed)
     if (this.hasType(event, 'result')) {
+      // Clear delegations when conversation completes
+      this.clearDelegations();
       return 'completed';
     }
 
@@ -86,6 +91,15 @@ export class ClaudeParser extends BaseParser {
     // Find tool result blocks
     for (const block of event.message.content) {
       if (block.type === 'tool_result' && block.tool_use_id) {
+        // Check if this is a Task tool completion (delegation completion)
+        if (block.content && typeof block.content === 'string') {
+          // Look for delegation completion markers
+          if (this.isDelegationCompletion(block.content)) {
+            this.clearDelegations();
+            return '✓ delegation completed';
+          }
+        }
+
         if (block.is_error) {
           return 'tool execution failed';
         }
@@ -94,6 +108,21 @@ export class ClaudeParser extends BaseParser {
     }
 
     return null;
+  }
+
+  /**
+   * Check if tool result indicates delegation completion
+   */
+  private isDelegationCompletion(content: string): boolean {
+    // Check for patterns that indicate Task tool (delegation) completion
+    const delegationPatterns = [
+      /task.*completed/i,
+      /delegation.*complete/i,
+      /subagent.*finished/i,
+      /(codex|gemini).*done/i
+    ];
+
+    return delegationPatterns.some(pattern => pattern.test(content));
   }
 
   /**
@@ -135,11 +164,40 @@ export class ClaudeParser extends BaseParser {
 
     // Handle Task tool (agent delegation)
     if (toolName === 'Task' && input?.subagent_type) {
-      return `delegating to ${input.subagent_type}...`;
+      const subagentType = input.subagent_type as string;
+
+      // Track this delegation to show notification once
+      if (!this.activeDelegations.has(subagentType)) {
+        this.activeDelegations.add(subagentType);
+        // Special marker for delegation start - will be caught by StatusUpdater
+        return `🔄 DELEGATION_START: ${this.formatSubagentName(subagentType)}`;
+      }
+
+      return `delegating to ${this.formatSubagentName(subagentType)}...`;
     }
 
     // Generic tool usage
     return `using tool: ${toolName}`;
+  }
+
+  /**
+   * Format subagent type name to human-readable format
+   */
+  private formatSubagentName(subagentType: string): string {
+    // Convert 'codex-delegator' to 'Codex'
+    // Convert 'gemini-delegator' to 'Gemini'
+    if (subagentType === 'codex-delegator') return 'Codex';
+    if (subagentType === 'gemini-delegator') return 'Gemini';
+
+    // Fallback: capitalize first letter
+    return subagentType.charAt(0).toUpperCase() + subagentType.slice(1);
+  }
+
+  /**
+   * Clear delegation tracking (call when session ends or resets)
+   */
+  clearDelegations(): void {
+    this.activeDelegations.clear();
   }
 
   /**

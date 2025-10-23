@@ -18,6 +18,8 @@ export interface MaestroConfig {
   inactivityTimeout: number;
   showSpinner: boolean;
   verbose: boolean;
+  planMode: boolean;
+  interactive: boolean; // Whether this is an interactive session (enables session continuation)
 
   // Logging configuration
   enableFileLogging: boolean;
@@ -95,6 +97,10 @@ export class ConfigManager {
       errors.push('verbose must be a boolean');
     }
 
+    if (typeof this.config.planMode !== 'boolean') {
+      errors.push('planMode must be a boolean');
+    }
+
     if (typeof this.config.enableFileLogging !== 'boolean') {
       errors.push('enableFileLogging must be a boolean');
     }
@@ -134,6 +140,8 @@ export class ConfigManager {
       inactivityTimeout: DEFAULT_INACTIVITY_TIMEOUT,
       showSpinner: true,
       verbose: false,
+      planMode: false,
+      interactive: false, // Default to non-interactive (one-shot mode)
 
       // Logging defaults
       enableFileLogging: DEFAULT_ENABLE_FILE_LOGGING,

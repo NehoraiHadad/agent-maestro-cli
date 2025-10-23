@@ -25,14 +25,20 @@ export async function installSkills(): Promise<boolean> {
 
   try {
     // Paths
-    const skillSource = path.join(__dirname, '../../skills/maestro-delegation-advisor');
+    let skillSource = path.join(__dirname, '../../skills/maestro-delegation-advisor');
+    const fallbackSkillSource = path.join(__dirname, '../../.claude/skills/maestro-delegation-advisor');
+
+    if (!fs.existsSync(skillSource) && fs.existsSync(fallbackSkillSource)) {
+      skillSource = fallbackSkillSource;
+    }
     const claudeSkillsBase = path.join(os.homedir(), '.claude', 'skills');
     const skillTarget = path.join(claudeSkillsBase, 'maestro-delegation-advisor');
 
     // Check if source skill exists
     if (!fs.existsSync(skillSource)) {
       logger.error('❌ Skill source directory not found!');
-      logger.error(`   Expected at: ${skillSource}`);
+      logger.error(`   Checked: ${path.join(__dirname, '../../skills/maestro-delegation-advisor')}`);
+      logger.error(`   Checked: ${fallbackSkillSource}`);
       return false;
     }
 
