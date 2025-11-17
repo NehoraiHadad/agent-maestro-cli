@@ -132,14 +132,40 @@ export class PTYManager {
   }
 
   /**
-   * Kill all processes
+   * Kill all processes gracefully with timeout
    */
-  killAll(): void {
+  async killAll(gracefulTimeoutMs: number = 5000): Promise<void> {
     const runningIds = this.lifecycle.getRunningIds();
-    runningIds.forEach(id => {
+    const killPromises = runningIds.map(id =>
+      this.killGracefully(id, gracefulTimeoutMs)
+    );
+    await Promise.allSettled(killPromises);
+  }
+
+  /**
+   * Kill a single process gracefully
+   * First tries SIGTERM, then SIGKILL after timeout
+   */
+  private async killGracefully(id: string, timeoutMs: number): Promise<void> {
+    try {
+      // Try graceful termination first
+      this.kill(id, 'SIGTERM');
+
+      // Wait for graceful shutdown
+      const startTime = Date.now();
+      while (this.isRunning(id) && (Date.now() - startTime < timeoutMs)) {
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      // Force kill if still running
+      if (this.isRunning(id)) {
+        this.kill(id, 'SIGKILL');
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+    } finally {
+      // Always cleanup event handlers
       this.eventEmitter.remove(id);
-    });
-    this.lifecycle.killAll();
+    }
   }
 
   /**

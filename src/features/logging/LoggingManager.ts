@@ -4,6 +4,7 @@
  */
 
 import { join } from 'path';
+import { randomUUID } from 'crypto';
 import { ConsoleLogger, LogLevel as ConsoleLogLevel } from '../ui/logger/ConsoleLogger.js';
 import { FileLogger, type FileLoggerOptions } from '../ui/logger/FileLogger.js';
 import type { LogLevel } from '../../shared/constants/index.js';
@@ -305,12 +306,11 @@ export class LoggingManager {
   }
 
   /**
-   * Generate unique session ID
+   * Generate unique session ID using cryptographically secure random
    */
   private generateSessionId(): string {
     const timestamp = Date.now();
-    const random = Math.random().toString(36).substring(2, 8);
-    return `${timestamp}-${random}`;
+    return `${timestamp}-${randomUUID()}`;
   }
 
   /**
