@@ -17,3 +17,11 @@ export {
   PTYWriteError
 } from './PTYErrors.js';
 export { ConfigValidationError } from './ConfigErrors.js';
+export {
+  OrchestrationError,
+  AgentExecutionError as AgentExecutionErrorOrch,
+  OutputProcessingError,
+  SessionError,
+  ValidationError,
+  TimeoutError
+} from './OrchestrationErrors.js';
