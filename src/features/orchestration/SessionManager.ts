@@ -3,6 +3,7 @@
  * Manages conversation session and message history
  */
 
+import { randomUUID } from 'crypto';
 import { Message } from '../../domain/entities/index.js';
 
 /**
@@ -252,10 +253,10 @@ export class SessionManager {
   }
 
   /**
-   * Generate a unique session ID
-   * @returns Unique session identifier
+   * Generate a cryptographically secure unique session ID
+   * @returns Unique session identifier using UUID v4
    */
   private generateSessionId(): string {
-    return `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    return `session_${randomUUID()}`;
   }
 }
