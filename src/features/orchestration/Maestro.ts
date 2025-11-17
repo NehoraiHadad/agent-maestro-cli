@@ -91,7 +91,15 @@ export class Maestro {
   }
 
   /**
-   * Start the orchestrator
+   * Start the orchestrator and initialize all subsystems
+   *
+   * @throws {Error} If orchestrator is already running
+   *
+   * @example
+   * ```typescript
+   * const maestro = Maestro.create({ verbose: true });
+   * await maestro.start();
+   * ```
    */
   async start(): Promise<void> {
     if (this.isRunning) {
@@ -117,9 +125,21 @@ export class Maestro {
   }
 
   /**
-   * Send a message to the primary agent
-   * @param message - User message
-   * @returns Agent execution result
+   * Send a message to the primary agent and execute it
+   *
+   * @param message - User's message to send to the agent
+   * @returns Promise resolving to agent execution result with content and metadata
+   *
+   * @throws {Error} If Maestro is not running (call start() first)
+   * @throws {PTYSpawnError} If process spawn fails
+   * @throws {AgentExecutionError} If agent execution fails
+   *
+   * @example
+   * ```typescript
+   * const result = await maestro.sendMessage("Explain this codebase");
+   * console.log(result.content);
+   * console.log(`Exit code: ${result.exitCode}`);
+   * ```
    */
   async sendMessage(message: string): Promise<AgentExecutionResult> {
     if (!this.isRunning) {
@@ -137,7 +157,13 @@ export class Maestro {
   }
 
   /**
-   * Stop the orchestrator
+   * Stop the orchestrator and cleanup all resources
+   * Performs graceful shutdown of PTY processes and closes logging
+   *
+   * @example
+   * ```typescript
+   * await maestro.stop();
+   * ```
    */
   async stop(): Promise<void> {
     this.isRunning = false;
@@ -224,13 +250,11 @@ export class Maestro {
         const useSessionId = shouldContinueSession && !!sessionId;
 
         // Debug logging
-        if (this.config.get('verbose')) {
-          console.log(`[DEBUG] Interactive mode: ${isInteractive}`);
-          console.log(`[DEBUG] CLI session active: ${cliSession?.isActive ?? false}`);
-          console.log(`[DEBUG] Should continue session: ${shouldContinueSession}`);
-          console.log(`[DEBUG] Session ID: ${sessionId || 'none'}`);
-          console.log(`[DEBUG] Using --resume with ID: ${useSessionId}`);
-        }
+        this.loggingManager.debug('Maestro', `Interactive mode: ${isInteractive}`);
+        this.loggingManager.debug('Maestro', `CLI session active: ${cliSession?.isActive ?? false}`);
+        this.loggingManager.debug('Maestro', `Should continue session: ${shouldContinueSession}`);
+        this.loggingManager.debug('Maestro', `Session ID: ${sessionId || 'none'}`);
+        this.loggingManager.debug('Maestro', `Using --resume with ID: ${useSessionId}`);
 
         // Get execution arguments with streaming, continuation, and plan mode support
         // NO delegation prompt - Claude Code Skills/Subagents handle delegation
@@ -243,9 +267,7 @@ export class Maestro {
         });
 
         // Debug logging
-        if (this.config.get('verbose')) {
-          console.log(`[DEBUG] Command args: ${this.primaryAgent.command} ${args.join(' ')}`);
-        }
+        this.loggingManager.debug('Maestro', `Command args: ${this.primaryAgent.command} ${args.join(' ')}`);
 
         // Activate session for next time (if this is first interaction in interactive mode)
         // This ensures the NEXT message will use --continue
@@ -416,7 +438,15 @@ export class Maestro {
 
   /**
    * Toggle Plan Mode on/off
-   * @returns New Plan Mode state
+   * Plan Mode enables research and planning without code execution
+   *
+   * @returns New Plan Mode state (true if enabled, false if disabled)
+   *
+   * @example
+   * ```typescript
+   * const isEnabled = maestro.togglePlanMode();
+   * console.log(`Plan Mode is now ${isEnabled ? 'enabled' : 'disabled'}`);
+   * ```
    */
   togglePlanMode(): boolean {
     const currentState = this.config.get('planMode');
@@ -439,6 +469,12 @@ export class Maestro {
   /**
    * Reset the current session
    * Clears the CLI session to start a fresh conversation
+   *
+   * @example
+   * ```typescript
+   * maestro.resetSession();
+   * console.log('Session reset - starting fresh conversation');
+   * ```
    */
   resetSession(): void {
     this.loggingManager.info('Maestro', 'Resetting session');

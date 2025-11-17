@@ -1,5 +1,5 @@
 /**
- * PTY (Pseudo-Terminal) related errors
+ * PTY-related errors
  */
 import { BaseError } from './BaseError.js';
 
@@ -16,7 +16,11 @@ export class PTYError extends BaseError {
 export class PTYSpawnError extends BaseError {
   constructor(command: string, reason: string) {
     super(
-      `Failed to spawn PTY process '${command}': ${reason}`,
+      `Failed to spawn PTY process for command '${command}': ${reason}\n` +
+      `Troubleshooting:\n` +
+      `  1. Verify the command is installed: which ${command}\n` +
+      `  2. Check PATH environment variable\n` +
+      `  3. Try running the command directly: ${command} --version`,
       'PTY_SPAWN_ERROR',
       { command, reason }
     );
@@ -46,7 +50,11 @@ export class PTYProcessNotRunningError extends BaseError {
 export class PTYWriteError extends BaseError {
   constructor(processId: string, reason: string) {
     super(
-      `Failed to write to PTY process '${processId}': ${reason}`,
+      `Failed to write to PTY process '${processId}': ${reason}\n` +
+      `Possible causes:\n` +
+      `  1. Process has already exited\n` +
+      `  2. Process stdin is closed\n` +
+      `  3. Process is not accepting input`,
       'PTY_WRITE_ERROR',
       { processId, reason }
     );

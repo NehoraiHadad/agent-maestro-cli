@@ -20,8 +20,8 @@ export interface Agent {
   readonly displayName: string;
   readonly command: string;
   readonly description: string;
-  readonly capabilities: string[];
-  readonly flags: AgentFlags;
+  readonly capabilities: readonly string[];
+  readonly flags: Readonly<AgentFlags>;
   readonly requiresAuth: boolean;
   readonly authType: string;
   readonly packageName: string;
@@ -34,6 +34,26 @@ export interface AgentConfig {
   showSpinner?: boolean;
   verbose?: boolean;
   planMode?: boolean;
+}
+
+/**
+ * Options for agent execution
+ */
+export interface AgentExecutionOptions {
+  /** Enable streaming output */
+  stream?: boolean;
+
+  /** Continue previous session (ONLY in interactive mode) */
+  continueSession?: boolean;
+
+  /** Specific session ID to resume */
+  sessionId?: string;
+
+  /** Enable plan mode (research without execution) */
+  planMode?: boolean;
+
+  /** Enable dangerous mode for Codex (bypass approvals) */
+  dangerousMode?: boolean;
 }
 
 export interface AgentExecutionResult {
