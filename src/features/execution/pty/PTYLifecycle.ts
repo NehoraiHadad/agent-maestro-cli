@@ -4,12 +4,21 @@
 import type { IPty } from 'node-pty';
 import type { PTYProcessInfo, PTYExitInfo } from '../../../shared/types/index.js';
 import { PTYProcessNotFoundError } from '../../../shared/errors/index.js';
+import {
+  DEFAULT_MAX_BUFFER_SIZE,
+  BUFFER_WARNING_THRESHOLD,
+  BUFFER_TRIM_TO_PERCENTAGE
+} from '../../../shared/constants/buffers.js';
 
 export class PTYLifecycle {
   private processes: Map<string, PTYProcessInfo>;
+  private maxBufferSize: number;
+  private bufferTrimCount: Map<string, number>; // Track trim events per process
 
-  constructor() {
+  constructor(maxBufferSize: number = DEFAULT_MAX_BUFFER_SIZE) {
     this.processes = new Map();
+    this.maxBufferSize = maxBufferSize;
+    this.bufferTrimCount = new Map();
   }
 
   /**
@@ -82,12 +91,30 @@ export class PTYLifecycle {
   }
 
   /**
-   * Append data to process buffer
+   * Append data to process buffer with automatic rotation
+   * @param id - Process identifier
+   * @param data - Data to append
    */
   appendToBuffer(id: string, data: string): void {
     const info = this.processes.get(id);
-    if (info) {
-      info.buffer += data;
+    if (!info) {
+      return;
+    }
+
+    // Append data
+    info.buffer += data;
+
+    // Check if buffer needs trimming
+    const currentSize = Buffer.byteLength(info.buffer, 'utf8');
+
+    // Log warning if approaching limit
+    if (currentSize > this.maxBufferSize * BUFFER_WARNING_THRESHOLD) {
+      this.logBufferWarning(id, currentSize);
+    }
+
+    // Trim if exceeded
+    if (currentSize > this.maxBufferSize) {
+      this.trimBuffer(id);
     }
   }
 
@@ -121,6 +148,10 @@ export class PTYLifecycle {
     const ptyProcess = info.process as IPty;
     ptyProcess.kill(signal);
     this.markKilled(id);
+
+    // Clean up trim count
+    this.bufferTrimCount.delete(id);
+
     return true;
   }
 
@@ -159,5 +190,137 @@ export class PTYLifecycle {
       this.kill(id);
     }
     this.processes.clear();
+  }
+
+  /**
+   * Trim buffer to prevent memory overflow
+   * @param id - Process identifier
+   */
+  private trimBuffer(id: string): void {
+    const info = this.processes.get(id);
+    if (!info) {
+      return;
+    }
+
+    const currentSize = Buffer.byteLength(info.buffer, 'utf8');
+    const targetSize = Math.floor(this.maxBufferSize * BUFFER_TRIM_TO_PERCENTAGE);
+
+    // Calculate how many bytes to remove
+    const bytesToRemove = currentSize - targetSize;
+
+    // Find the character position that roughly corresponds to bytesToRemove
+    // This is approximate since UTF-8 characters can be 1-4 bytes
+    let removedBytes = 0;
+    let charPosition = 0;
+
+    while (removedBytes < bytesToRemove && charPosition < info.buffer.length) {
+      const charCode = info.buffer.charCodeAt(charPosition);
+      const charByteSize = this.getUtf8ByteSize(charCode);
+      removedBytes += charByteSize;
+      charPosition++;
+    }
+
+    // Trim the buffer (keep most recent data)
+    info.buffer = info.buffer.slice(charPosition);
+
+    // Track trim events
+    const trimCount = (this.bufferTrimCount.get(id) || 0) + 1;
+    this.bufferTrimCount.set(id, trimCount);
+
+    // Log the trim event
+    this.logBufferTrimmed(id, bytesToRemove, currentSize, trimCount);
+  }
+
+  /**
+   * Get UTF-8 byte size for a character code
+   * @param charCode - Character code
+   * @returns Byte size (1-4)
+   */
+  private getUtf8ByteSize(charCode: number): number {
+    if (charCode <= 0x7F) return 1;
+    if (charCode <= 0x7FF) return 2;
+    if (charCode <= 0xFFFF) return 3;
+    return 4;
+  }
+
+  /**
+   * Log buffer warning when approaching limit
+   * @param id - Process identifier
+   * @param currentSize - Current buffer size in bytes
+   */
+  private logBufferWarning(id: string, currentSize: number): void {
+    const percentage = ((currentSize / this.maxBufferSize) * 100).toFixed(1);
+    console.warn(
+      `[PTYLifecycle] Process ${id} buffer at ${percentage}% capacity ` +
+      `(${this.formatBytes(currentSize)} / ${this.formatBytes(this.maxBufferSize)})`
+    );
+  }
+
+  /**
+   * Log buffer trim event
+   * @param id - Process identifier
+   * @param bytesRemoved - Number of bytes removed
+   * @param previousSize - Size before trimming
+   * @param trimCount - Total number of trims for this process
+   */
+  private logBufferTrimmed(
+    id: string,
+    bytesRemoved: number,
+    previousSize: number,
+    trimCount: number
+  ): void {
+    const newSize = previousSize - bytesRemoved;
+    console.log(
+      `[PTYLifecycle] Buffer trimmed for process ${id} ` +
+      `(trim #${trimCount}): ` +
+      `${this.formatBytes(previousSize)} → ${this.formatBytes(newSize)} ` +
+      `(removed ${this.formatBytes(bytesRemoved)})`
+    );
+  }
+
+  /**
+   * Format bytes to human-readable string
+   * @param bytes - Number of bytes
+   * @returns Formatted string (e.g., "1.5 MB")
+   */
+  private formatBytes(bytes: number): string {
+    const units = ['B', 'KB', 'MB', 'GB'];
+    let value = bytes;
+    let unitIndex = 0;
+
+    while (value >= 1024 && unitIndex < units.length - 1) {
+      value /= 1024;
+      unitIndex++;
+    }
+
+    return `${value.toFixed(2)} ${units[unitIndex]}`;
+  }
+
+  /**
+   * Get buffer statistics for a process
+   * @param id - Process identifier
+   * @returns Buffer stats or null if process not found
+   */
+  getBufferStats(id: string): {
+    currentSize: number;
+    maxSize: number;
+    utilization: number;
+    trimCount: number;
+  } | null {
+    const info = this.processes.get(id);
+    if (!info) {
+      return null;
+    }
+
+    const currentSize = Buffer.byteLength(info.buffer, 'utf8');
+    const utilization = (currentSize / this.maxBufferSize) * 100;
+    const trimCount = this.bufferTrimCount.get(id) || 0;
+
+    return {
+      currentSize,
+      maxSize: this.maxBufferSize,
+      utilization,
+      trimCount
+    };
   }
 }
