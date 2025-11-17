@@ -8,6 +8,7 @@ import { Maestro } from '../../features/orchestration/index.js';
 import { AgentRepository } from '../../domain/index.js';
 import { InteractiveSession } from '../../features/ui/index.js';
 import { ConsoleLogger } from '../../features/ui/index.js';
+import { TIMEOUTS } from '../../shared/constants/index.js';
 
 interface StartCommandOptions {
   message?: string;
@@ -31,7 +32,7 @@ export class StartCommand {
       .option('-m, --message <text>', 'single message to send (non-interactive mode)')
       .option('-v, --verbose', 'enable verbose logging')
       .option('--no-spinner', 'disable loading spinners')
-      .option('--timeout <ms>', 'inactivity timeout in milliseconds', '60000')
+      .option('--timeout <ms>', 'inactivity timeout in milliseconds', TIMEOUTS.DEFAULT_INACTIVITY.toString())
       .option('--plan-mode', 'enable plan mode (research and planning without execution)')
       .action(async (options: StartCommandOptions) => {
         await this.execute(options);
@@ -56,7 +57,7 @@ export class StartCommand {
 
       // Create configuration
       const config = {
-        inactivityTimeout: parseInt(options.timeout || '60000'),
+        inactivityTimeout: parseInt(options.timeout || TIMEOUTS.DEFAULT_INACTIVITY.toString()),
         showSpinner: options.spinner !== false,
         verbose: options.verbose || false,
         planMode: options.planMode || false,
@@ -72,7 +73,7 @@ export class StartCommand {
 
       // Create and start Maestro
       this.logger.header('Starting AgentMaestro with Claude Code');
-      const maestro = new Maestro(config);
+      const maestro = Maestro.create(config);
       await maestro.start();
 
       // Non-interactive mode: send single message and exit
@@ -130,7 +131,7 @@ export class StartCommand {
         setTimeout(() => {
           process.kill();
           resolve(false);
-        }, 2000);
+        }, TIMEOUTS.COMMAND_AVAILABILITY_CHECK);
       });
     } catch {
       return false;

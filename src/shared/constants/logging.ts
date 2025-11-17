@@ -2,9 +2,11 @@
  * Logging and configuration constants
  */
 
+import { TIMEOUTS } from './timeouts.js';
+
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export const DEFAULT_INACTIVITY_TIMEOUT = 60000; // 60 seconds
+export const DEFAULT_INACTIVITY_TIMEOUT = TIMEOUTS.DEFAULT_INACTIVITY;
 export const DEFAULT_MAX_DELEGATION_DEPTH = 3; // Legacy - no longer used but kept for compatibility
 export const DEFAULT_LOG_DIRECTORY = './logs';
 export const DEFAULT_LOG_LEVEL: LogLevel = 'info';
