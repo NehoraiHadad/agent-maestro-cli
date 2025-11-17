@@ -5,6 +5,7 @@ import * as readline from 'readline';
 import type { Maestro } from '../../orchestration/Maestro.js';
 import { ConsoleLogger } from '../logger/ConsoleLogger.js';
 import { PromptFormatter } from './PromptFormatter.js';
+import type { KeypressEvent } from '../../../shared/types/ui.types.js';
 
 export interface KeypressCallbacks {
   onPlanModeToggle: (newState: boolean) => void;
@@ -51,7 +52,7 @@ export class KeypressHandler {
     }
 
     // Listen for keypress events
-    process.stdin.on('keypress', (_str: string, key: any) => {
+    process.stdin.on('keypress', (_str: string, key: KeypressEvent) => {
       this.handleKeypress(key, callbacks);
     });
 
@@ -61,7 +62,7 @@ export class KeypressHandler {
   /**
    * Handle individual keypress events
    */
-  private handleKeypress(key: any, callbacks: KeypressCallbacks): void {
+  private handleKeypress(key: KeypressEvent, callbacks: KeypressCallbacks): void {
     if (!key) return;
 
     // Shift+Tab to toggle Plan Mode
@@ -86,22 +87,22 @@ export class KeypressHandler {
   /**
    * Check if key combination is Shift+Tab
    */
-  private isShiftTab(key: any): boolean {
-    return key.name === 'tab' && key.shift && !key.ctrl && !key.meta;
+  private isShiftTab(key: KeypressEvent): boolean {
+    return key.name === 'tab' && key.shift === true && key.ctrl !== true && key.meta !== true;
   }
 
   /**
    * Check if key combination is Ctrl+C
    */
-  private isCtrlC(key: any): boolean {
-    return key.ctrl && key.name === 'c';
+  private isCtrlC(key: KeypressEvent): boolean {
+    return key.ctrl === true && key.name === 'c';
   }
 
   /**
    * Check if key combination is Ctrl+D
    */
-  private isCtrlD(key: any): boolean {
-    return key.ctrl && key.name === 'd';
+  private isCtrlD(key: KeypressEvent): boolean {
+    return key.ctrl === true && key.name === 'd';
   }
 
   /**

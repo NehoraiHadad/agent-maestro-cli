@@ -5,12 +5,13 @@
 
 import ora from 'ora';
 import chalk from 'chalk';
+import type { SpinnerInstance, ChalkColorMethod } from '../../../shared/types/ui.types.js';
 
 /**
  * Custom spinner wrapper with enhanced functionality
  */
 export class Spinner {
-  private spinner: any; // ora instance
+  private spinner: SpinnerInstance | null = null;
   private startTime: number | null = null;
 
   /**
@@ -23,7 +24,7 @@ export class Spinner {
 
     this.spinner = ora({
       text: this.formatText(text, color),
-      color: this.getOraColor(color) as any,
+      color: this.getOraColor(color),
       spinner: 'dots'
     }).start();
 
@@ -96,14 +97,14 @@ export class Spinner {
    * Check if spinner is currently active
    */
   isSpinning(): boolean {
-    return this.spinner && this.spinner.isSpinning;
+    return this.spinner !== null && this.spinner.isSpinning === true;
   }
 
   /**
    * Convert color (hex or name) to Ora-compatible color name
    * Ora only supports named colors, not hex
    */
-  private getOraColor(color?: string): string {
+  private getOraColor(color?: string): 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white' | 'gray' {
     if (!color) {
       return 'cyan';
     }
@@ -111,7 +112,7 @@ export class Spinner {
     // If it's a hex color, map to closest named color for Ora spinner
     if (color.startsWith('#')) {
       // Map hex colors to Ora-compatible named colors
-      const hexMap: Record<string, string> = {
+      const hexMap: Record<string, 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white' | 'gray'> = {
         '#D97757': 'yellow',  // Claude - coral -> yellow
         '#4285F4': 'blue',     // Gemini - blue
         '#10A37F': 'green',    // Codex - green
@@ -120,8 +121,14 @@ export class Spinner {
       return hexMap[color] || 'cyan';
     }
 
-    // Named color - pass through
-    return color;
+    // Check if it's a valid Ora color
+    const validOraColors = ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray'];
+    if (validOraColors.includes(color)) {
+      return color as 'black' | 'red' | 'green' | 'yellow' | 'blue' | 'magenta' | 'cyan' | 'white' | 'gray';
+    }
+
+    // Default to cyan if invalid
+    return 'cyan';
   }
 
   /**
@@ -138,8 +145,16 @@ export class Spinner {
     }
 
     // Support named colors (e.g., 'cyan', 'magenta')
-    const chalkColor = (chalk as any)[color];
-    return chalkColor && typeof chalkColor === 'function' ? chalkColor(text) : text;
+    const validColors: ChalkColorMethod[] = [
+      'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray', 'grey'
+    ];
+
+    if (validColors.includes(color as ChalkColorMethod)) {
+      const chalkColor = chalk[color as ChalkColorMethod];
+      return chalkColor(text);
+    }
+
+    return text;
   }
 
   /**

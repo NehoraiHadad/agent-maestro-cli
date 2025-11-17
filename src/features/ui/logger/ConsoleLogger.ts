@@ -4,6 +4,7 @@
  */
 
 import chalk from 'chalk';
+import type { ChalkColorMethod } from '../../../shared/types/ui.types.js';
 
 /**
  * Log levels for filtering output
@@ -95,9 +96,14 @@ export class ConsoleLogger {
    */
   agent(agentName: string, message: string, color?: string): void {
     const agentLabel = `[${agentName.toUpperCase()}]`;
-    const coloredLabel = color && (chalk as any)[color]
-      ? (chalk as any)[color].bold(agentLabel)
-      : chalk.cyan.bold(agentLabel);
+
+    let coloredLabel = chalk.cyan.bold(agentLabel);
+    if (color) {
+      const colorFn = this.getChalkColor(color);
+      if (colorFn) {
+        coloredLabel = chalk.bold(colorFn(agentLabel));
+      }
+    }
 
     console.log(coloredLabel, message);
   }
@@ -126,14 +132,22 @@ export class ConsoleLogger {
     const maxLength = Math.max(...lines.map(line => line.length));
     const border = '+' + '-'.repeat(maxLength + 2) + '+';
 
-    const colorFn = color && (chalk as any)[color] ? (chalk as any)[color] : chalk.white;
+    const applyColor = (str: string): string => {
+      if (color) {
+        const colorFn = this.getChalkColor(color);
+        if (colorFn) {
+          return colorFn(str);
+        }
+      }
+      return chalk.white(str);
+    };
 
-    console.log(colorFn(border));
+    console.log(applyColor(border));
     lines.forEach(line => {
       const padding = ' '.repeat(maxLength - line.length);
-      console.log(colorFn(`| ${line}${padding} |`));
+      console.log(applyColor(`| ${line}${padding} |`));
     });
-    console.log(colorFn(border));
+    console.log(applyColor(border));
   }
 
   /**
@@ -148,5 +162,22 @@ export class ConsoleLogger {
    */
   getLevel(): LogLevel {
     return this.level;
+  }
+
+  /**
+   * Get chalk color function safely
+   * @param color - Color name
+   * @returns Chalk function or null if invalid
+   */
+  private getChalkColor(color: string): ((text: string) => string) | null {
+    const validColors: ChalkColorMethod[] = [
+      'black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan', 'white', 'gray', 'grey'
+    ];
+
+    if (validColors.includes(color as ChalkColorMethod)) {
+      return chalk[color as ChalkColorMethod];
+    }
+
+    return null;
   }
 }
