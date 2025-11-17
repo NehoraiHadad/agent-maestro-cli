@@ -16,3 +16,4 @@ export {
   PTYProcessNotRunningError,
   PTYWriteError
 } from './PTYErrors.js';
+export { ConfigValidationError } from './ConfigErrors.js';
