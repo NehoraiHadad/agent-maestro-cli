@@ -5,6 +5,7 @@
 
 import inquirer from 'inquirer';
 import type { Agent } from '../../../shared/types/index.js';
+import type { MenuSelection } from '../../../shared/types/ui.types.js';
 
 /**
  * Interactive menu for CLI user interactions
@@ -27,7 +28,7 @@ export class InteractiveMenu {
 
     const choices = agents.map(agent => this.formatAgentChoice(agent));
 
-    const answer = await inquirer.prompt([
+    const answer = await inquirer.prompt<MenuSelection>([
       {
         type: 'list',
         name: 'agent',
@@ -46,7 +47,11 @@ export class InteractiveMenu {
    * @returns True if confirmed, false otherwise
    */
   async confirm(message: string): Promise<boolean> {
-    const answer = await inquirer.prompt([
+    interface ConfirmAnswer {
+      confirmed: boolean;
+    }
+
+    const answer = await inquirer.prompt<ConfirmAnswer>([
       {
         type: 'confirm',
         name: 'confirmed',
@@ -65,7 +70,11 @@ export class InteractiveMenu {
    * @returns User input string
    */
   async input(message: string, defaultValue?: string): Promise<string> {
-    const answer = await inquirer.prompt([
+    interface InputAnswer {
+      value: string;
+    }
+
+    const answer = await inquirer.prompt<InputAnswer>([
       {
         type: 'input',
         name: 'value',
@@ -94,8 +103,11 @@ export class InteractiveMenu {
       throw new Error('No choices available to select from');
     }
 
-    // Using any to avoid type issues with inquirer v10 and @types/inquirer v9 mismatch
-    const answer: any = await (inquirer.prompt as any)([
+    interface MultiSelectAnswer {
+      selected: string[];
+    }
+
+    const answer = await inquirer.prompt<MultiSelectAnswer>([
       {
         type: 'checkbox',
         name: 'selected',
@@ -104,13 +116,11 @@ export class InteractiveMenu {
       }
     ]);
 
-    const selected = answer.selected as string[];
-
-    if (selected.length === 0) {
+    if (answer.selected.length === 0) {
       throw new Error('You must select at least one item');
     }
 
-    return selected;
+    return answer.selected;
   }
 
   /**
