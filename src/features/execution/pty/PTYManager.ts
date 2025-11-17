@@ -7,16 +7,19 @@ import { PTYSpawner } from './PTYSpawner.js';
 import { PTYLifecycle } from './PTYLifecycle.js';
 import { PTYEventEmitter } from './PTYEventEmitter.js';
 import { PTYWriteError } from '../../../shared/errors/index.js';
+import { RetryManager } from '../../../shared/utils/index.js';
 
 export class PTYManager {
   private spawner: PTYSpawner;
   private lifecycle: PTYLifecycle;
   private eventEmitter: PTYEventEmitter;
+  private retryManager: RetryManager;
 
   constructor() {
     this.spawner = new PTYSpawner();
     this.lifecycle = new PTYLifecycle();
     this.eventEmitter = new PTYEventEmitter();
+    this.retryManager = new RetryManager();
   }
 
   /**
@@ -169,9 +172,16 @@ export class PTYManager {
   }
 
   /**
-   * Check command availability
+   * Check command availability with retry logic
    */
   async isCommandAvailable(command: string): Promise<boolean> {
-    return this.spawner.isCommandAvailable(command);
+    return this.retryManager.executeWithRetry(
+      () => this.spawner.isCommandAvailable(command),
+      {
+        maxRetries: 2,
+        baseDelay: 500,
+        exponential: false
+      }
+    ).catch(() => false); // Return false if all retries fail
   }
 }

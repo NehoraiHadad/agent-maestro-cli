@@ -14,10 +14,15 @@ import { ConfigManager, MaestroConfig } from './ConfigManager.js';
 import { SessionManager } from './SessionManager.js';
 import { LoggingManager } from '../logging/index.js';
 import { SessionIdExtractor } from './SessionIdExtractor.js';
+import { MetricsCollector } from '../monitoring/index.js';
 
 export interface MaestroStats {
   totalMessages: number;
   sessionDuration: number;
+  totalExecutions: number;
+  successfulExecutions: number;
+  failedExecutions: number;
+  averageExecutionTime: number;
 }
 
 /**
@@ -35,6 +40,7 @@ export class Maestro {
   private statusUpdater: StatusUpdater;
   private loggingManager: LoggingManager;
   private sessionIdExtractor: SessionIdExtractor;
+  private metricsCollector: MetricsCollector;
   private spinner: Spinner | null = null;
   private isRunning: boolean = false;
 
@@ -79,6 +85,7 @@ export class Maestro {
     this.outputFormatter = new OutputFormatter();
     this.statusUpdater = new StatusUpdater(undefined, this.loggingManager);
     this.sessionIdExtractor = new SessionIdExtractor();
+    this.metricsCollector = new MetricsCollector();
   }
 
   /**
@@ -146,14 +153,26 @@ export class Maestro {
       throw new Error('Maestro is not running. Call start() first.');
     }
 
-    // Log user message
-    this.loggingManager.logUserMessage(message);
+    const executionId = `exec_${Date.now()}`;
+    this.metricsCollector.startExecution(executionId);
 
-    // Add user message to session
-    this.sessionManager.addUserMessage(message);
+    try {
+      // Log user message
+      this.loggingManager.logUserMessage(message);
 
-    // Execute primary agent
-    return await this.executePrimaryAgent(message);
+      // Add user message to session
+      this.sessionManager.addUserMessage(message);
+
+      // Execute primary agent
+      const result = await this.executePrimaryAgent(message);
+
+      this.metricsCollector.endExecution(executionId, result.exitCode === 0);
+
+      return result;
+    } catch (error) {
+      this.metricsCollector.endExecution(executionId, false);
+      throw error;
+    }
   }
 
   /**
@@ -196,10 +215,32 @@ export class Maestro {
    */
   getStats(): MaestroStats {
     const summary = this.sessionManager.getSummary();
+    const metrics = this.metricsCollector.getSummary();
+
     return {
       totalMessages: summary.messageCount,
-      sessionDuration: summary.duration
+      sessionDuration: summary.duration,
+      totalExecutions: metrics.totalExecutions,
+      successfulExecutions: metrics.successfulExecutions,
+      failedExecutions: metrics.failedExecutions,
+      averageExecutionTime: metrics.averageExecutionTime
     };
+  }
+
+  /**
+   * Get performance metrics
+   * @returns Metrics summary with execution statistics
+   */
+  getMetrics(): ReturnType<MetricsCollector['getSummary']> {
+    return this.metricsCollector.getSummary();
+  }
+
+  /**
+   * Export metrics as JSON
+   * @returns JSON string with all collected metrics
+   */
+  exportMetrics(): string {
+    return this.metricsCollector.export();
   }
 
   /**
