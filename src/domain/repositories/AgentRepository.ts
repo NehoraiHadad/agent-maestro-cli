@@ -5,12 +5,15 @@ import { Agent } from '../entities/Agent.js';
 import type { Agent as AgentType, AgentName } from '../../shared/types/index.js';
 import { AgentNotFoundError } from '../../shared/errors/index.js';
 import { AGENT_NAMES, AGENT_COLORS, AGENT_PACKAGES } from '../../shared/constants/index.js';
+import { CircuitBreaker } from '../../shared/utils/index.js';
 
 export class AgentRepository {
   private agents: Map<AgentName, Agent>;
+  private circuitBreakers: Map<AgentName, CircuitBreaker>;
 
   constructor() {
     this.agents = new Map();
+    this.circuitBreakers = new Map();
     this.initializeDefaultAgents();
   }
 
@@ -135,5 +138,52 @@ export class AgentRepository {
    */
   findAllExcept(excludeName: string): Agent[] {
     return this.findAll().filter(agent => agent.name !== excludeName);
+  }
+
+  /**
+   * Get or create circuit breaker for agent
+   */
+  private getCircuitBreaker(agentName: AgentName): CircuitBreaker {
+    if (!this.circuitBreakers.has(agentName)) {
+      const breaker = new CircuitBreaker({
+        failureThreshold: 3,
+        successThreshold: 2,
+        timeout: 30000,
+        onStateChange: (oldState, newState) => {
+          console.warn(`[AgentRepository] Circuit breaker for ${agentName}: ${oldState} -> ${newState}`);
+        }
+      });
+      this.circuitBreakers.set(agentName, breaker);
+    }
+    return this.circuitBreakers.get(agentName)!;
+  }
+
+  /**
+   * Execute agent operation with circuit breaker protection
+   */
+  async executeWithProtection<T>(
+    agentName: AgentName,
+    operation: () => Promise<T>
+  ): Promise<T> {
+    const breaker = this.getCircuitBreaker(agentName);
+    return breaker.execute(operation);
+  }
+
+  /**
+   * Get circuit breaker stats for an agent
+   */
+  getCircuitStats(agentName: AgentName): ReturnType<CircuitBreaker['getStats']> | null {
+    const breaker = this.circuitBreakers.get(agentName);
+    return breaker ? breaker.getStats() : null;
+  }
+
+  /**
+   * Reset circuit breaker for an agent
+   */
+  resetCircuit(agentName: AgentName): void {
+    const breaker = this.circuitBreakers.get(agentName);
+    if (breaker) {
+      breaker.reset();
+    }
   }
 }
