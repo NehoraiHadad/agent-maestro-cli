@@ -123,8 +123,8 @@ export class Maestro {
       this.spinner.stop();
     }
 
-    // Cleanup subsystems
-    this.ptyManager.killAll();
+    // Cleanup subsystems - gracefully kill all PTY processes
+    await this.ptyManager.killAll();
 
     // Close logging (this will log session end)
     await this.loggingManager.close();

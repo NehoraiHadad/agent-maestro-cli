@@ -38,12 +38,31 @@ export class PTYSpawner {
 
   /**
    * Check if command exists in system
+   * Uses spawn instead of execSync to prevent command injection
    */
   async isCommandAvailable(command: string): Promise<boolean> {
     try {
-      const { execSync } = await import('child_process');
-      execSync(`which ${command}`, { stdio: 'ignore' });
-      return true;
+      const { spawn } = await import('child_process');
+
+      // Sanitize command name - only allow alphanumeric, dash, underscore, and dot
+      if (!/^[a-zA-Z0-9_.-]+$/.test(command)) {
+        return false;
+      }
+
+      return new Promise((resolve) => {
+        const child = spawn('which', [command], {
+          stdio: 'ignore',
+          shell: false // Explicitly disable shell to prevent injection
+        });
+
+        child.on('close', (code) => {
+          resolve(code === 0);
+        });
+
+        child.on('error', () => {
+          resolve(false);
+        });
+      });
     } catch {
       return false;
     }
