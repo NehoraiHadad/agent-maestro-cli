@@ -16,6 +16,12 @@ import { LoggingManager } from '../logging/index.js';
 import { SessionIdExtractor } from './SessionIdExtractor.js';
 import { MetricsCollector } from '../monitoring/index.js';
 import { InputValidator } from '../../shared/utils/InputValidator.js';
+import {
+  OrchestrationError,
+  AgentExecutionError,
+  OutputProcessingError,
+  SessionError
+} from '../../shared/errors/OrchestrationErrors.js';
 
 export interface MaestroStats {
   totalMessages: number;
@@ -191,7 +197,23 @@ export class Maestro {
       return result;
     } catch (error) {
       this.metricsCollector.endExecution(executionId, false);
-      throw error;
+
+      // Enrich and re-throw
+      const enrichedError = this.enrichError(error, {
+        agent: this.primaryAgent.name,
+        executionId,
+        operation: 'execution'
+      });
+
+      this.loggingManager.error(
+        'Maestro',
+        `Execution failed: ${enrichedError.message}`,
+        enrichedError instanceof OrchestrationError ? enrichedError.context : {}
+      );
+
+      this.logDetailedError(enrichedError, 'sendMessage');
+
+      throw enrichedError;
     }
   }
 
@@ -271,6 +293,93 @@ export class Maestro {
     return this.loggingManager;
   }
 
+
+  /**
+   * Enrich error with execution context
+   * @param error - Original error
+   * @param context - Additional context
+   * @returns Enriched error
+   */
+  private enrichError(
+    error: unknown,
+    context: {
+      agent?: string;
+      sessionId?: string;
+      executionId?: string;
+      operation?: string;
+    }
+  ): Error {
+    // If it's already one of our custom errors, return as-is
+    // (it already has context embedded)
+    if (error instanceof OrchestrationError) {
+      return error;
+    }
+
+    // Convert unknown errors to proper Error objects
+    const message = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack : undefined;
+
+    // Create appropriate error type based on context
+    let enrichedError: Error;
+
+    if (context.operation === 'execution') {
+      enrichedError = new AgentExecutionError(
+        context.agent || 'unknown',
+        message,
+        undefined,
+        { ...context }
+      );
+    } else if (context.operation === 'output_processing') {
+      enrichedError = new OutputProcessingError(
+        context.agent || 'unknown',
+        message,
+        undefined,
+        { ...context }
+      );
+    } else if (context.operation === 'session') {
+      enrichedError = new SessionError(
+        message,
+        context.sessionId,
+        { ...context }
+      );
+    } else {
+      enrichedError = new OrchestrationError('ORCHESTRATION_ERROR', message, { ...context });
+    }
+
+    // Preserve original stack trace
+    if (stack) {
+      enrichedError.stack = stack;
+    }
+
+    return enrichedError;
+  }
+
+  /**
+   * Log error with full context for debugging
+   * @param error - Error to log
+   * @param operation - Operation that failed
+   */
+  private logDetailedError(error: Error, operation: string): void {
+    const errorInfo: Record<string, unknown> = {
+      operation,
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+    };
+
+    // Check specific error types first (before base class)
+    if (error instanceof AgentExecutionError) {
+      errorInfo.code = error.code;
+      errorInfo.context = error.context;
+      errorInfo.agentName = error.agentName;
+      errorInfo.exitCode = error.exitCode;
+    } else if (error instanceof OrchestrationError) {
+      errorInfo.code = error.code;
+      errorInfo.context = error.context;
+    }
+
+    this.loggingManager.error('Maestro', 'Detailed error information:', errorInfo);
+  }
 
   /**
    * Execute the primary agent with streaming
@@ -417,14 +526,25 @@ export class Maestro {
               this.spinner.fail(`${this.primaryAgent.displayName}: error`);
             }
 
-            // Log error
-            const errorMsg = error instanceof Error ? error.message : String(error);
-            this.loggingManager.error('Maestro', `Output processing failed: ${errorMsg}`, {
+            // Get session ID if available
+            const cliSession = this.sessionManager.getCliSession(this.primaryAgent.name);
+            const sessionId = cliSession?.sessionId;
+
+            const enrichedError = this.enrichError(error, {
               agent: this.primaryAgent.name,
-              error: errorMsg
+              sessionId,
+              operation: 'output_processing'
             });
 
-            reject(error);
+            this.loggingManager.error(
+              'Maestro',
+              `Output processing failed: ${enrichedError.message}`,
+              enrichedError instanceof OrchestrationError ? enrichedError.context : {}
+            );
+
+            this.logDetailedError(enrichedError, 'output_processing');
+
+            reject(enrichedError);
           }
         });
 
@@ -433,14 +553,20 @@ export class Maestro {
           this.spinner.fail(`${this.primaryAgent.displayName}: error`);
         }
 
-        // Log execution error
-        const errorMsg = error instanceof Error ? error.message : String(error);
-        this.loggingManager.error('Maestro', `Agent execution failed: ${errorMsg}`, {
+        const enrichedError = this.enrichError(error, {
           agent: this.primaryAgent.name,
-          error: errorMsg
+          operation: 'execution'
         });
 
-        reject(error);
+        this.loggingManager.error(
+          'Maestro',
+          `Agent execution failed: ${enrichedError.message}`,
+          enrichedError instanceof OrchestrationError ? enrichedError.context : {}
+        );
+
+        this.logDetailedError(enrichedError, 'agent_execution');
+
+        reject(enrichedError);
       }
     });
   }
