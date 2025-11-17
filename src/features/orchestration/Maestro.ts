@@ -15,6 +15,7 @@ import { SessionManager } from './SessionManager.js';
 import { LoggingManager } from '../logging/index.js';
 import { SessionIdExtractor } from './SessionIdExtractor.js';
 import { MetricsCollector } from '../monitoring/index.js';
+import { InputValidator } from '../../shared/utils/InputValidator.js';
 
 export interface MaestroStats {
   totalMessages: number;
@@ -151,6 +152,25 @@ export class Maestro {
   async sendMessage(message: string): Promise<AgentExecutionResult> {
     if (!this.isRunning) {
       throw new Error('Maestro is not running. Call start() first.');
+    }
+
+    // Validate input message
+    const validationResult = InputValidator.validateMessage(message, {
+      maxLength: 100000,
+      minLength: 1,
+    });
+
+    if (!validationResult.isValid) {
+      const errorMessage = `Invalid input: ${validationResult.errors.join(', ')}`;
+      this.loggingManager.error('Maestro', errorMessage);
+      throw new Error(errorMessage);
+    }
+
+    // Log warnings if any
+    if (validationResult.warnings.length > 0) {
+      for (const warning of validationResult.warnings) {
+        this.loggingManager.warn('Maestro', `Input validation warning: ${warning}`);
+      }
     }
 
     const executionId = `exec_${Date.now()}`;
