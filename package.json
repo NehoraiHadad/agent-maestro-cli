@@ -14,7 +14,12 @@
     "dev": "tsc && node --watch dist/cli/index.js",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "test": "tsc --project tsconfig.test.json && node dist/tests/tests/test-basic.js"
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "npm run test -- --watch",
+    "test:coverage": "npm run test -- --coverage",
+    "test:unit": "npm run test -- tests/unit",
+    "test:integration": "npm run test -- tests/integration",
+    "test:ci": "npm run test -- --ci --coverage --maxWorkers=2"
   },
   "keywords": [
     "cli",
