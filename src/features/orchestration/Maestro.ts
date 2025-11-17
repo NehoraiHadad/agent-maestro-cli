@@ -13,6 +13,7 @@ import type { AgentExecutionResult } from '../../shared/types/index.js';
 import { ConfigManager, MaestroConfig } from './ConfigManager.js';
 import { SessionManager } from './SessionManager.js';
 import { LoggingManager } from '../logging/index.js';
+import { SessionIdExtractor } from './SessionIdExtractor.js';
 
 export interface MaestroStats {
   totalMessages: number;
@@ -33,24 +34,39 @@ export class Maestro {
   private sessionManager: SessionManager;
   private statusUpdater: StatusUpdater;
   private loggingManager: LoggingManager;
+  private sessionIdExtractor: SessionIdExtractor;
   private spinner: Spinner | null = null;
   private isRunning: boolean = false;
 
   /**
    * Create a new Maestro orchestrator
-   * Always uses Claude as the primary agent
-   * @param config - Optional configuration
+   * @param config - Configuration manager or partial config object
+   * @param ptyManager - PTY manager (optional, will create if not provided)
+   * @param sessionManager - Session manager (optional, will create if not provided)
+   * @param loggingManager - Logging manager (optional, will create if not provided)
+   * @param agentRepository - Agent repository (optional, will create if not provided)
    */
-  constructor(config?: Partial<MaestroConfig>) {
-    this.agentRepository = new AgentRepository();
+  constructor(
+    config: ConfigManager | Partial<MaestroConfig>,
+    ptyManager?: PTYManager,
+    sessionManager?: SessionManager,
+    loggingManager?: LoggingManager,
+    agentRepository?: AgentRepository
+  ) {
+    // Handle config as ConfigManager or plain object
+    this.config = config instanceof ConfigManager
+      ? config
+      : new ConfigManager(config);
+
+    // Use injected dependencies or create new ones
+    this.agentRepository = agentRepository ?? new AgentRepository();
     this.primaryAgent = this.agentRepository.findByName('claude');
 
-    this.config = new ConfigManager(config);
-    this.ptyManager = new PTYManager();
-    this.sessionManager = new SessionManager();
+    this.ptyManager = ptyManager ?? new PTYManager();
+    this.sessionManager = sessionManager ?? new SessionManager();
 
     // Initialize logging manager
-    this.loggingManager = new LoggingManager({
+    this.loggingManager = loggingManager ?? new LoggingManager({
       enableFileLogging: this.config.get('enableFileLogging'),
       logLevel: this.config.get('logLevel'),
       logDirectory: this.config.get('logDirectory'),
@@ -62,6 +78,16 @@ export class Maestro {
     this.streamProcessor = new StreamProcessor();
     this.outputFormatter = new OutputFormatter();
     this.statusUpdater = new StatusUpdater(undefined, this.loggingManager);
+    this.sessionIdExtractor = new SessionIdExtractor();
+  }
+
+  /**
+   * Static factory method for convenient creation
+   * @param config - Partial configuration
+   * @returns New Maestro instance with default dependencies
+   */
+  static create(config?: Partial<MaestroConfig>): Maestro {
+    return new Maestro(config ?? {});
   }
 
   /**
@@ -241,24 +267,9 @@ export class Maestro {
 
           try {
             // Try extracting Session ID one final time from complete output
-            // (in case we missed it during streaming)
             const currentSession = this.sessionManager.getCliSession(this.primaryAgent.name);
             if (!currentSession?.sessionId) {
-              const sessionIdPatterns = [
-                /Session ID:\s*([a-zA-Z0-9_-]+)/i,           // Standard format
-                /session[_-]id[:\s]+([a-zA-Z0-9_-]+)/i,      // Alternative formats
-                /\bsession_([a-zA-Z0-9_-]{8,})\b/i           // session_<uuid> format
-              ];
-
-              let extractedSessionId: string | null = null;
-
-              for (const pattern of sessionIdPatterns) {
-                const match = output.match(pattern);
-                if (match && match[1]) {
-                  extractedSessionId = match[1];
-                  break;
-                }
-              }
+              const extractedSessionId = this.sessionIdExtractor.extract(output);
 
               if (extractedSessionId) {
                 this.loggingManager.debug('Maestro', `Extracted Session ID in onExit: ${extractedSessionId}`);
@@ -386,30 +397,19 @@ export class Maestro {
    * Called during streaming to catch Session ID as early as possible
    */
   private tryExtractSessionId(data: string): void {
-    // Claude Code outputs session ID in format: "Session ID: <uuid>"
-    // We want to extract this ASAP so it's available for the next message
-    const sessionIdPatterns = [
-      /Session ID:\s*([a-zA-Z0-9_-]+)/i,           // Standard format
-      /session[_-]id[:\s]+([a-zA-Z0-9_-]+)/i,      // Alternative formats
-      /\bsession_([a-zA-Z0-9_-]{8,})\b/i           // session_<uuid> format
-    ];
+    const extractedSessionId = this.sessionIdExtractor.extract(data);
 
-    for (const pattern of sessionIdPatterns) {
-      const match = data.match(pattern);
-      if (match && match[1]) {
-        const extractedSessionId = match[1];
-        const currentSession = this.sessionManager.getCliSession(this.primaryAgent.name);
+    if (extractedSessionId) {
+      const currentSession = this.sessionManager.getCliSession(this.primaryAgent.name);
 
-        // Only update if we don't have a session ID yet or if it's different
-        if (!currentSession?.sessionId || currentSession.sessionId !== extractedSessionId) {
-          this.loggingManager.debug('Maestro', `Extracted Session ID during streaming: ${extractedSessionId}`);
+      // Only update if we don't have a session ID yet or if it's different
+      if (!currentSession?.sessionId || currentSession.sessionId !== extractedSessionId) {
+        this.loggingManager.debug('Maestro', `Extracted Session ID during streaming: ${extractedSessionId}`);
 
-          this.sessionManager.setCliSession(this.primaryAgent.name, {
-            sessionId: extractedSessionId,
-            isActive: true
-          });
-        }
-        break;
+        this.sessionManager.setCliSession(this.primaryAgent.name, {
+          sessionId: extractedSessionId,
+          isActive: true
+        });
       }
     }
   }

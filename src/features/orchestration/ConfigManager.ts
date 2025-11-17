@@ -13,6 +13,7 @@ import {
   DEFAULT_LOG_ROTATION,
   type LogLevel
 } from '../../shared/constants/index.js';
+import { ConfigValidationError } from '../../shared/errors/index.js';
 
 export interface MaestroConfig {
   inactivityTimeout: number;
@@ -50,6 +51,12 @@ export class ConfigManager {
       ...ConfigManager.getDefaults(),
       ...config
     };
+
+    // Validate configuration immediately
+    const validation = this.validate();
+    if (!validation.valid) {
+      throw new ConfigValidationError(validation.errors);
+    }
   }
 
   /**
