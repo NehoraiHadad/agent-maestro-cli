@@ -1,6 +1,6 @@
 {
   "name": "agent-maestro",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Meta-orchestrator CLI for collaborative AI agents (Claude Code, Gemini CLI, Codex)",
   "type": "module",
   "main": "dist/cli/index.js",
