@@ -3,6 +3,7 @@
  * Updates spinner based on agent status changes
  */
 
+import chalk from 'chalk';
 import { Spinner } from './Spinner.js';
 import type { LoggingManager } from '../../logging/index.js';
 
@@ -69,7 +70,8 @@ export class StatusUpdater {
    * @param delegateeName - Name of the subagent being delegated to
    */
   private showDelegationNotification(delegateeName: string): void {
-    console.log(`\n🔄 Delegating to ${delegateeName} subagent...`);
+    // Use wrapper-aware console output with indentation
+    console.log(`\n  ${chalk.yellow('→')} ${chalk.cyan.bold(`[${delegateeName}]`)} ${chalk.gray('starting delegation...')}`);
 
     // Log delegation to file
     if (this.loggingManager) {

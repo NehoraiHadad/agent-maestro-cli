@@ -77,18 +77,52 @@ export class ConsoleLogger {
   }
 
   /**
-   * Log maestro-specific message
+   * Log maestro wrapper message - indicates Maestro orchestrator action
    */
   maestro(message: string, ...args: unknown[]): void {
-    console.log(chalk.magenta.bold('[MAESTRO]'), message, ...args);
+    console.log(chalk.magenta.bold('🎭 [Maestro]'), message, ...args);
   }
 
   /**
-   * Log delegation message
+   * Log when Maestro starts Claude Code
    */
-  delegation(agentName: string, message: string, ...args: unknown[]): void {
-    const formattedAgent = chalk.cyan.bold(`[${agentName.toUpperCase()}]`);
-    console.log(formattedAgent, message, ...args);
+  startingWrapper(message: string = 'Starting Claude Code wrapper...'): void {
+    console.log(chalk.magenta.bold('🎭 [Maestro]'), chalk.gray(message));
+  }
+
+  /**
+   * Log Claude Code message - the primary agent
+   */
+  claude(message: string, ...args: unknown[]): void {
+    console.log(chalk.hex('#D97757').bold('🤖 [Claude]'), message, ...args);
+  }
+
+  /**
+   * Log delegation from Claude to another agent
+   */
+  delegation(fromAgent: string, toAgent: string, task: string = ''): void {
+    const arrow = chalk.yellow('→');
+    const from = chalk.hex('#D97757').bold(`[${fromAgent}]`);
+    const to = chalk.cyan.bold(`[${toAgent}]`);
+    const taskMsg = task ? chalk.gray(`: ${task}`) : '';
+    console.log(`  ${from} ${arrow} ${to}${taskMsg}`);
+  }
+
+  /**
+   * Log subagent (Codex/Gemini) working
+   */
+  subagent(agentName: string, message: string, ...args: unknown[]): void {
+    const icon = agentName.toLowerCase() === 'codex' ? '⚡' : '🔍';
+    const formattedAgent = chalk.cyan.bold(`${icon} [${agentName}]`);
+    console.log(`  ${formattedAgent}`, message, ...args);
+  }
+
+  /**
+   * Log subagent completion
+   */
+  subagentComplete(agentName: string, duration?: string): void {
+    const durationStr = duration ? chalk.gray(` (${duration})`) : '';
+    console.log(`  ${chalk.green('✓')} ${chalk.cyan(`[${agentName}]`)} ${chalk.gray('completed')}${durationStr}`);
   }
 
   /**
