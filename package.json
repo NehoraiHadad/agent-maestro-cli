@@ -14,7 +14,7 @@
     "dev": "tsc && node --watch dist/cli/index.js",
     "clean": "rm -rf dist",
     "prebuild": "npm run clean",
-    "test": "node tests/run-tests.js"
+    "test": "tsc --project tsconfig.test.json && node dist/tests/tests/test-basic.js"
   },
   "keywords": [
     "cli",

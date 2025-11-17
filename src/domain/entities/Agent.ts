@@ -1,7 +1,7 @@
 /**
  * Agent entity - represents an AI agent in the system
  */
-import type { Agent as AgentType, AgentName, AgentFlags } from '../../shared/types/index.js';
+import type { Agent as AgentType, AgentName, AgentFlags, AgentExecutionOptions } from '../../shared/types/index.js';
 import { AgentConfigError } from '../../shared/errors/index.js';
 
 export class Agent implements AgentType {
@@ -9,8 +9,8 @@ export class Agent implements AgentType {
   readonly displayName: string;
   readonly command: string;
   readonly description: string;
-  readonly capabilities: string[];
-  readonly flags: AgentFlags;
+  readonly capabilities: readonly string[];
+  readonly flags: Readonly<AgentFlags>;
   readonly requiresAuth: boolean;
   readonly authType: string;
   readonly packageName: string;
@@ -87,17 +87,12 @@ export class Agent implements AgentType {
    */
   getExecutionArgs(
     prompt: string,
-    options?: {
-      stream?: boolean;
-      continueSession?: boolean;
-      sessionId?: string;
-      planMode?: boolean;
-    }
+    options?: AgentExecutionOptions
   ): string[] {
     const args: string[] = [];
 
-    // Ensure Codex always runs with full-access flag so it won't block on prompts
-    if (this.name === 'codex') {
+    // Codex dangerous mode (configurable via options)
+    if (this.name === 'codex' && options?.dangerousMode !== false) {
       args.push('--dangerously-bypass-approvals-and-sandbox');
     }
     const finalPrompt = prompt;
