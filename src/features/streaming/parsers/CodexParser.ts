@@ -5,13 +5,8 @@
 
 import { BaseParser } from './BaseParser.js';
 import type { CodexStreamEvent, StatusUpdate } from '../../../shared/types/index.js';
-import { truncate, getFilename } from '../../../shared/utils/index.js';
-import {
-  stripBashWrapper,
-  formatBashCommand,
-  isSearchCommand,
-  isEditCommand
-} from './CommandFormatter.js';
+import { truncate } from '../../../shared/utils/index.js';
+import { stripBashWrapper } from './CommandFormatter.js';
 
 /**
  * Codex-specific streaming event parser
@@ -92,26 +87,15 @@ export class CodexParser extends BaseParser {
 
   /**
    * Extract command information and format status message
+   * Simplified version - basic command status only
    */
   private extractCommandInfo(command: string, isStarting: boolean = false): string {
     const cleanCommand = stripBashWrapper(command);
 
-    const fileOp = this.parseFileOperation(cleanCommand);
-    if (fileOp) return fileOp;
-
-    // Search operations
-    if (isSearchCommand(cleanCommand)) {
-      return isStarting ? 'searching files...' : 'search complete';
-    }
-
-    // Edit operations
-    if (isEditCommand(cleanCommand)) {
-      return isStarting ? 'editing file...' : 'edit complete';
-    }
-
-    // Use shared formatter for other commands
     if (isStarting) {
-      return formatBashCommand(cleanCommand, 'executing');
+      // Show simplified starting status
+      const shortCmd = cleanCommand.substring(0, 30);
+      return `running: ${shortCmd}...`;
     }
 
     // Completion status
@@ -121,9 +105,10 @@ export class CodexParser extends BaseParser {
 
   /**
    * Format command completion status
+   * Simplified version
    */
   private formatCommandCompletion(
-    command: string | undefined,
+    _command: string | undefined,
     exitCode: number | undefined,
     status: string | undefined
   ): string {
@@ -132,52 +117,16 @@ export class CodexParser extends BaseParser {
       return `command failed (exit ${exitCode ?? 'unknown'})`;
     }
 
-    // Handle successful completion
-    if (!command) {
-      return 'command completed';
-    }
-
-    const cleanCommand = stripBashWrapper(command);
-    const cmdName = cleanCommand.split(' ')[0];
-    return `${cmdName} completed`;
+    // Simple completion message
+    return 'command completed';
   }
 
   /**
    * Format tool call status
+   * Simplified version
    */
   private formatToolCall(toolName: string): string {
-    // Add specific formatting for known tools
-    const toolMap: Record<string, string> = {
-      'read_file': 'read file',
-      'write_file': 'wrote file',
-      'search_files': 'searched files',
-      'list_directory': 'listed directory',
-    };
-
-    return toolMap[toolName] || `used tool: ${toolName}`;
-  }
-
-  /**
-   * Parse file operations and extract filename
-   */
-  private parseFileOperation(command: string): string | null {
-    const readCommands = ['sed', 'cat', 'head', 'tail'];
-    const cmdParts = command.split(' ');
-    const cmdName = cmdParts[0];
-
-    if (readCommands.includes(cmdName)) {
-      // Find the file argument (usually last non-flag argument)
-      const fileArg = cmdParts.find(part =>
-        !part.startsWith('-') && part !== cmdName
-      );
-
-      if (fileArg) {
-        const filename = getFilename(fileArg);
-        return `reading: ${filename}`;
-      }
-    }
-
-    return null;
+    return `using ${toolName}...`;
   }
 
 }

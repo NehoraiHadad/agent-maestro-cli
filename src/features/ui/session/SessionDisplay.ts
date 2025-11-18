@@ -16,10 +16,15 @@ export class SessionDisplay {
    */
   showWelcome(): void {
     this.logger.separator();
-    this.logger.success('🎭 AgentMaestro session started!');
-    this.logger.info('Type your messages below. Type "exit" or "quit" to end the session.');
-    this.logger.info('Press Shift+Tab to toggle Plan Mode.');
-    this.logger.info('Session commands: /reset, /session-info, /help-session\n');
+    this.logger.maestro('Interactive Session - Claude Code Wrapper');
+    this.logger.separator();
+    this.logger.info('🤖 Primary Agent: Claude Code');
+    this.logger.info('🔄 Auto-delegation: Enabled (Codex & Gemini)');
+    this.logger.info('');
+    this.logger.info('💬 Type your messages below');
+    this.logger.info('⌨️  Press Shift+Tab to toggle Plan Mode');
+    this.logger.info('📋 Commands: /reset, /session-info, /help-session');
+    this.logger.info('🚪 Type "exit" or "quit" to end session\n');
     this.logger.separator();
   }
 

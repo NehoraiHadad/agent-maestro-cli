@@ -6,7 +6,7 @@
 import { BaseParser } from './BaseParser.js';
 import type { ClaudeStreamEvent, StatusUpdate } from '../../../shared/types/index.js';
 import { truncate } from '../../../shared/utils/index.js';
-import { formatBashCommand, extractFilename } from './CommandFormatter.js';
+import { extractFilename } from './CommandFormatter.js';
 
 /**
  * Claude-specific streaming event parser
@@ -127,46 +127,14 @@ export class ClaudeParser extends BaseParser {
 
   /**
    * Format tool use into readable status message
+   * Simplified version - focuses on key actions only
    */
   private formatToolUseStatus(toolName: string, input?: Record<string, unknown>): string {
-    // Handle Bash tool specially to show command details
-    if (toolName === 'Bash' && input?.command) {
-      return this.formatBashCommand(input.command as string);
-    }
-
-    // Handle Read tool
-    if (toolName === 'Read' && input?.file_path) {
-      const filename = extractFilename(input.file_path as string);
-      return `reading: ${filename}`;
-    }
-
-    // Handle Edit tool
-    if (toolName === 'Edit' && input?.file_path) {
-      const filename = extractFilename(input.file_path as string);
-      return `editing: ${filename}`;
-    }
-
-    // Handle Write tool
-    if (toolName === 'Write' && input?.file_path) {
-      const filename = extractFilename(input.file_path as string);
-      return `writing: ${filename}`;
-    }
-
-    // Handle Grep tool
-    if (toolName === 'Grep' && input?.pattern) {
-      return `searching: ${truncate(input.pattern as string, 40)}`;
-    }
-
-    // Handle Glob tool
-    if (toolName === 'Glob' && input?.pattern) {
-      return `finding files: ${input.pattern}`;
-    }
-
-    // Handle Task tool (agent delegation)
+    // Handle Task tool (delegation) - most important for wrapper visibility
     if (toolName === 'Task' && input?.subagent_type) {
       const subagentType = input.subagent_type as string;
 
-      // Track this delegation to show notification once
+      // Track delegation to show notification once
       if (!this.activeDelegations.has(subagentType)) {
         this.activeDelegations.add(subagentType);
         // Special marker for delegation start - will be caught by StatusUpdater
@@ -176,8 +144,20 @@ export class ClaudeParser extends BaseParser {
       return `delegating to ${this.formatSubagentName(subagentType)}...`;
     }
 
-    // Generic tool usage
-    return `using tool: ${toolName}`;
+    // Simplified file operations - just show the tool name
+    if (['Read', 'Edit', 'Write'].includes(toolName) && input?.file_path) {
+      const filename = extractFilename(input.file_path as string);
+      return `${toolName.toLowerCase()}: ${filename}`;
+    }
+
+    // Bash commands - show simplified command
+    if (toolName === 'Bash' && input?.command) {
+      const cmd = (input.command as string).substring(0, 40);
+      return `running: ${cmd}...`;
+    }
+
+    // Everything else - generic status
+    return `using ${toolName}...`;
   }
 
   /**
@@ -198,13 +178,6 @@ export class ClaudeParser extends BaseParser {
    */
   clearDelegations(): void {
     this.activeDelegations.clear();
-  }
-
-  /**
-   * Format Bash command into readable status (delegates to shared formatter)
-   */
-  private formatBashCommand(command: string): string {
-    return formatBashCommand(command, 'executing');
   }
 
   /**
