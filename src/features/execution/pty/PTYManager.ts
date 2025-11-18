@@ -6,7 +6,7 @@ import type { PTYOptions, PTYExitInfo } from '../../../shared/types/index.js';
 import { PTYSpawner } from './PTYSpawner.js';
 import { PTYLifecycle } from './PTYLifecycle.js';
 import { PTYEventEmitter } from './PTYEventEmitter.js';
-import { PTYWriteError } from '../../../shared/errors/index.js';
+import { AgentError } from '../../../shared/errors/index.js';
 
 export class PTYManager {
   private spawner: PTYSpawner;
@@ -68,7 +68,11 @@ export class PTYManager {
     const info = this.lifecycle.get(id);
 
     if (!this.lifecycle.isRunning(id)) {
-      throw new PTYWriteError(id, 'Process is not running');
+      throw new AgentError(
+        id,
+        'Process is not running',
+        'PTY_WRITE_ERROR'
+      );
     }
 
     try {
@@ -76,7 +80,11 @@ export class PTYManager {
       ptyProcess.write(data);
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new PTYWriteError(id, reason);
+      throw new AgentError(
+        id,
+        `Write failed: ${reason}`,
+        'PTY_WRITE_ERROR'
+      );
     }
   }
 

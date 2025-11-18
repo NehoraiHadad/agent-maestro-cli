@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { ConfigManager } from '../../src/features/orchestration/ConfigManager.js';
-import { ConfigValidationError } from '../../src/shared/errors/index.js';
+import { MaestroError } from '../../src/shared/errors/index.js';
 
 describe('ConfigManager', () => {
   describe('Constructor', () => {
@@ -26,7 +26,7 @@ describe('ConfigManager', () => {
     it('should throw on invalid configuration', () => {
       expect(() => {
         new ConfigManager({ inactivityTimeout: -1000 });
-      }).toThrow(ConfigValidationError);
+      }).toThrow(MaestroError);
     });
   });
 

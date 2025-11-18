@@ -6,7 +6,7 @@
 import { Command } from 'commander';
 import { AgentRepository } from '../../domain/index.js';
 import { ConsoleLogger } from '../../features/ui/index.js';
-import { AgentNotFoundError } from '../../shared/errors/index.js';
+import { MaestroError } from '../../shared/errors/index.js';
 import type { Agent } from '../../shared/types/index.js';
 import chalk from 'chalk';
 
@@ -51,7 +51,7 @@ export class InfoCommand {
       this.displayAgentInfo(agent, available);
 
     } catch (error) {
-      if (error instanceof AgentNotFoundError) {
+      if (error instanceof MaestroError && error.code === 'AGENT_NOT_FOUND') {
         this.logger.error(`\nAgent '${agentName}' not found.`);
         this.logger.info('\nUse "maestro list" to see available agents.');
       } else {
