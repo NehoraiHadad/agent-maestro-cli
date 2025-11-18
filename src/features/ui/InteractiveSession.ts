@@ -7,13 +7,15 @@ import type { Maestro } from '../orchestration/Maestro.js';
 import { ConsoleLogger } from './logger/ConsoleLogger.js';
 import type { LoggingManager } from '../logging/index.js';
 import {
-  KeypressHandler,
-  PromptFormatter,
-  MessageProcessor,
-  SessionDisplay,
   InputValidator,
-  SessionCommands
-} from './session/index.js';
+  PromptFormatter,
+  KeypressHandler
+} from './session/SessionInput.js';
+import {
+  SessionDisplay,
+  MessageProcessor
+} from './session/SessionOutput.js';
+import { SessionCommands } from './session/SessionCommands.js';
 
 /**
  * Main interactive session coordinator

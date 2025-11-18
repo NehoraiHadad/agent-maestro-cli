@@ -9,7 +9,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 
 **Status**: In Progress
 **Started**: 2025-11-18
-**Completed**: 5 of 7 tasks (71%)
+**Completed**: 6 of 7 tasks (86%)
 **Total Tasks**: 7 (4 Critical, 3 Medium)
 
 ---
@@ -30,7 +30,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 | ID | Task | Status | Priority | Dependencies | Assignee | Notes |
 |----|------|--------|----------|--------------|----------|-------|
 | TASK-005 | Remove Infrastructure | ✅ Complete | MEDIUM | None | - | Removed CircuitBreaker, MetricsCollector, TimeoutManager, RetryManager |
-| TASK-006 | Merge Small Files | ⏳ Pending | MEDIUM | None | - | ui/session/ folder (7→3 files) |
+| TASK-006 | Merge Small Files | ✅ Complete | MEDIUM | None | - | ui/session/ folder (7→4 files) |
 | TASK-007 | Simplify Error Handling | ⏳ Pending | MEDIUM | None | - | Reduce from 6 error types to 2-3 |
 
 ---
@@ -74,6 +74,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 | 2025-11-18 | TASK-003 | ✅ Complete | Removed delegation detection from StatusUpdater, Maestro, MessageProcessor, and type definitions. Removed delegations field from AgentExecutionResult and maxDelegationDepth from AgentConfig. All tests passing. |
 | 2025-11-18 | TASK-004 | ✅ Complete | Simplified agent management (Option A). AgentRepository now only contains Claude. Updated DelegateCommand, InfoCommand, and ListCommand to only support Claude with helpful messaging about Subagents. Added clarifying comments to agent constants. Build succeeds. |
 | 2025-11-18 | TASK-005 | ✅ Complete | Removed unnecessary infrastructure components. Deleted CircuitBreaker (150+ lines), MetricsCollector (100+ lines), TimeoutManager (90 lines), and RetryManager (100+ lines). Updated AgentRepository, Maestro, and PTYManager to remove usage. Removed infrastructure tests. 15 files changed, 1772 lines removed. All tests passing. |
+| 2025-11-18 | TASK-006 | ✅ Complete | Merged small session files. Combined InputValidator, PromptFormatter, and KeypressHandler into SessionInput.ts. Combined SessionDisplay and MessageProcessor into SessionOutput.ts. Kept SessionCommands.ts separate. Reduced 7 files to 4 files. Updated imports in InteractiveSession.ts and session/index.ts. All 198 tests passing. Build succeeds. |
 
 ---
 
