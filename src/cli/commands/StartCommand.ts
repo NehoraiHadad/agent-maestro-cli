@@ -73,8 +73,8 @@ export class StartCommand {
 
       // Create and start Maestro with clear wrapper indication
       this.logger.separator();
-      this.logger.maestro('AgentMaestro - Claude Code Wrapper');
-      this.logger.startingWrapper();
+      this.logger.maestro('AgentMaestro - Wrapper for Claude Code');
+      this.logger.info('🚀 Starting Claude Code session...');
       this.logger.separator();
 
       const maestro = Maestro.create(config);

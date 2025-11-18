@@ -86,8 +86,8 @@ export class ConsoleLogger {
   /**
    * Log when Maestro starts Claude Code
    */
-  startingWrapper(message: string = 'Starting Claude Code wrapper...'): void {
-    console.log(chalk.magenta.bold('🎭 [Maestro]'), chalk.gray(message));
+  startingWrapper(message: string = 'Launching Claude Code...'): void {
+    console.log(chalk.blue('🚀'), chalk.gray(message));
   }
 
   /**

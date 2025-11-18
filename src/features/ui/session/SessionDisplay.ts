@@ -16,10 +16,10 @@ export class SessionDisplay {
    */
   showWelcome(): void {
     this.logger.separator();
-    this.logger.maestro('Interactive Session - Claude Code Wrapper');
+    this.logger.maestro('AgentMaestro - Wrapper for Claude Code');
     this.logger.separator();
-    this.logger.info('🤖 Primary Agent: Claude Code');
-    this.logger.info('🔄 Auto-delegation: Enabled (Codex & Gemini)');
+    this.logger.info('🤖 Running: Claude Code (native interface)');
+    this.logger.info('💡 Tip: Claude can delegate to Codex/Gemini via Subagents');
     this.logger.info('');
     this.logger.info('💬 Type your messages below');
     this.logger.info('⌨️  Press Shift+Tab to toggle Plan Mode');

@@ -70,12 +70,12 @@ export class StatusUpdater {
    * @param delegateeName - Name of the subagent being delegated to
    */
   private showDelegationNotification(delegateeName: string): void {
-    // Use wrapper-aware console output with indentation
-    console.log(`\n  ${chalk.yellow('→')} ${chalk.cyan.bold(`[${delegateeName}]`)} ${chalk.gray('starting delegation...')}`);
+    // Show that Claude is using a subagent (not maestro delegating)
+    console.log(`\n  ${chalk.yellow('→')} ${chalk.cyan.bold(`[${delegateeName}]`)} ${chalk.gray('Claude is delegating...')}`);
 
     // Log delegation to file
     if (this.loggingManager) {
-      this.loggingManager.info('StatusUpdater', `Detected subagent delegation to ${delegateeName}`);
+      this.loggingManager.info('StatusUpdater', `Claude delegating to ${delegateeName} subagent`);
     }
   }
 
