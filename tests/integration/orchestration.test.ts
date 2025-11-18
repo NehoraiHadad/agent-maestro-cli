@@ -1,14 +1,10 @@
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { ConfigManager } from '../../src/features/orchestration/ConfigManager.js';
 import { SessionManager } from '../../src/features/orchestration/SessionManager.js';
-import { CircuitBreaker } from '../../src/shared/utils/CircuitBreaker.js';
-import { RetryManager } from '../../src/shared/utils/RetryManager.js';
 
 describe('Orchestration Integration', () => {
   let configManager: ConfigManager;
   let sessionManager: SessionManager;
-  let circuitBreaker: CircuitBreaker;
-  let retryManager: RetryManager;
 
   beforeEach(() => {
     configManager = new ConfigManager({
@@ -18,14 +14,6 @@ describe('Orchestration Integration', () => {
     });
 
     sessionManager = new SessionManager();
-
-    circuitBreaker = new CircuitBreaker({
-      failureThreshold: 3,
-      successThreshold: 2,
-      timeout: 1000
-    });
-
-    retryManager = new RetryManager();
   });
 
   describe('Component Integration', () => {
@@ -52,53 +40,6 @@ describe('Orchestration Integration', () => {
       const summary2 = sessionManager.getSummary();
       expect(summary2.messageCount).toBe(0);
       expect(summary2.sessionId).not.toBe(summary1.sessionId);
-    });
-
-    it('should use circuit breaker with retry manager', async () => {
-      let attempts = 0;
-
-      const operation = async () => {
-        attempts++;
-        if (attempts < 2) {
-          throw new Error('Temporary failure');
-        }
-        return 'success';
-      };
-
-      // Use retry manager with circuit breaker
-      const result = await retryManager.executeWithRetry(
-        () => circuitBreaker.execute(operation),
-        { maxRetries: 3, baseDelay: 10 }
-      );
-
-      expect(result).toBe('success');
-      expect(attempts).toBe(2);
-      expect(circuitBreaker.getState()).toBe('CLOSED');
-    });
-
-    it('should handle circuit breaker opening during retries', async () => {
-      const operation = async () => {
-        throw new Error('Always fail');
-      };
-
-      // Trigger enough failures to open circuit
-      for (let i = 0; i < 3; i++) {
-        try {
-          await circuitBreaker.execute(operation);
-        } catch (e) {
-          // Expected
-        }
-      }
-
-      expect(circuitBreaker.getState()).toBe('OPEN');
-
-      // Retry should fail immediately due to open circuit
-      await expect(
-        retryManager.executeWithRetry(
-          () => circuitBreaker.execute(operation),
-          { maxRetries: 2, baseDelay: 10 }
-        )
-      ).rejects.toThrow();
     });
   });
 
@@ -211,73 +152,6 @@ describe('Orchestration Integration', () => {
 
       configManager.set('verbose', true);
       expect(configManager.get('verbose')).toBe(true);
-    });
-  });
-
-  describe('Error Recovery Workflow', () => {
-    it('should recover from transient failures', async () => {
-      let attempts = 0;
-
-      const flakeyOperation = async () => {
-        attempts++;
-        if (attempts === 1) {
-          throw new Error('Network timeout');
-        }
-        if (attempts === 2) {
-          throw new Error('Service unavailable');
-        }
-        return 'success';
-      };
-
-      const result = await retryManager.executeWithRetry(flakeyOperation, {
-        maxRetries: 4,
-        baseDelay: 10
-      });
-
-      expect(result).toBe('success');
-      expect(attempts).toBe(3);
-    });
-
-    it('should track failures in circuit breaker', async () => {
-      const failingOp = async () => {
-        throw new Error('Service down');
-      };
-
-      // Track consecutive failures
-      for (let i = 0; i < 3; i++) {
-        try {
-          await circuitBreaker.execute(failingOp);
-        } catch (e) {
-          // Expected
-        }
-      }
-
-      const stats = circuitBreaker.getStats();
-      expect(stats.state).toBe('OPEN');
-      expect(stats.failureCount).toBe(3);
-    });
-
-    it('should reset circuit after successful recovery', async () => {
-      // Fail to open circuit
-      for (let i = 0; i < 3; i++) {
-        try {
-          await circuitBreaker.execute(async () => {
-            throw new Error('fail');
-          });
-        } catch (e) {
-          // Expected
-        }
-      }
-
-      expect(circuitBreaker.getState()).toBe('OPEN');
-
-      // Reset and verify
-      circuitBreaker.reset();
-      expect(circuitBreaker.getState()).toBe('CLOSED');
-
-      // Should work now
-      const result = await circuitBreaker.execute(async () => 'recovered');
-      expect(result).toBe('recovered');
     });
   });
 });

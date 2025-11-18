@@ -35,9 +35,6 @@ AgentMaestro provides a streamlined interface for Claude Code with built-in Plan
 - **Modular design** with clear separation of concerns
 
 ### 🚀 New Features
-- **RetryManager** - automatic retry with exponential backoff
-- **CircuitBreaker** - prevents cascading failures
-- **MetricsCollector** - track performance and execution statistics
 - **Enhanced TypeScript types** with strict mode compliance
 
 ### 📊 Code Quality
@@ -45,11 +42,6 @@ AgentMaestro provides a streamlined interface for Claude Code with built-in Plan
 - **Comprehensive JSDoc documentation** for public APIs
 - **Centralized constants** (no more magic numbers)
 - **Improved error messages** with troubleshooting tips
-
-### 📈 Observability
-- **Performance metrics** collection and export
-- **Execution statistics** (success rate, avg time, etc.)
-- **Circuit breaker status** monitoring
 
 ## 🎬 Quick Demo
 
@@ -357,26 +349,6 @@ $ maestro
 
 - [Skills Documentation](plugins/maestro-delegation-suite/skills/maestro-delegation-advisor/SKILL.md) - Delegation advisor skill details
 - [Subagents Documentation](plugins/maestro-delegation-suite/agents/) - Codex and Gemini delegator configurations
-
-## Performance Metrics
-
-AgentMaestro now collects performance metrics automatically:
-
-```typescript
-const maestro = Maestro.create({ verbose: true });
-await maestro.start();
-
-// ... work with maestro ...
-
-// Get metrics summary
-const metrics = maestro.getMetrics();
-console.log(`Average execution time: ${metrics.averageExecutionTime}ms`);
-console.log(`Success rate: ${metrics.successfulExecutions}/${metrics.totalExecutions}`);
-
-// Export detailed metrics
-const metricsJson = maestro.exportMetrics();
-console.log(metricsJson);
-```
 
 ## 🛠️ How It Works
 
