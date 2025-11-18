@@ -33,6 +33,14 @@ export class InfoCommand {
    */
   static async execute(agentName: string): Promise<void> {
     try {
+      // AgentMaestro only supports Claude Code directly
+      if (agentName !== 'claude') {
+        this.logger.error(`\n❌ AgentMaestro only wraps Claude Code.`);
+        this.logger.info(`\n💡 For Codex/Gemini, Claude delegates automatically via Subagents.`);
+        this.logger.info(`   Use "maestro info claude" for agent information.\n`);
+        process.exit(1);
+      }
+
       const repository = new AgentRepository();
       const agent = repository.findByName(agentName);
 

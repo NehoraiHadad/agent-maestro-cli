@@ -19,6 +19,8 @@ export class AgentRepository {
 
   /**
    * Initialize default agents
+   * Note: AgentMaestro is a wrapper for Claude Code only.
+   * Claude Code can delegate to other agents (Codex, Gemini) via its native Subagent system.
    */
   private initializeDefaultAgents(): void {
     const defaultAgents: AgentType[] = [
@@ -26,13 +28,14 @@ export class AgentRepository {
         name: AGENT_NAMES.CLAUDE,
         displayName: 'Claude Code',
         command: 'claude',
-        description: 'Anthropic Claude - Best for codebase navigation, refactoring, and architectural decisions',
+        description: 'Anthropic Claude - Primary agent for AgentMaestro wrapper',
         capabilities: [
           'Code refactoring',
           'Codebase analysis',
           'Architectural planning',
           'File editing',
-          'MCP integration'
+          'MCP integration',
+          'Native Subagent delegation to Codex/Gemini'
         ],
         flags: {
           prompt: '--print',
@@ -43,54 +46,9 @@ export class AgentRepository {
         authType: 'Claude Pro/Max subscription',
         packageName: AGENT_PACKAGES.CLAUDE,
         color: AGENT_COLORS.CLAUDE
-      },
-      {
-        name: AGENT_NAMES.GEMINI,
-        displayName: 'Gemini CLI',
-        command: 'gemini',
-        description: 'Google Gemini - Best for automation, web search, and content generation',
-        capabilities: [
-          'Task automation',
-          'Web search grounding',
-          'Content generation',
-          'File operations',
-          'Custom tool integration'
-        ],
-        flags: {
-          prompt: '-p',  // -p flag works reliably even with commas in prompts
-          json: ['--output-format', 'json']
-        },
-        requiresAuth: true,
-        authType: 'Google account / AI Studio key',
-        packageName: AGENT_PACKAGES.GEMINI,
-        color: AGENT_COLORS.GEMINI
-      },
-      {
-        name: AGENT_NAMES.CODEX,
-        displayName: 'OpenAI Codex',
-        command: 'codex',
-        description: 'OpenAI Codex - Best for code generation, completion, and pair programming',
-        capabilities: [
-          'Code generation',
-          'Code completion',
-          'Debugging assistance',
-          'Unit test creation',
-          'Multiple autonomy modes'
-        ],
-        flags: {
-          prompt: 'exec',
-          stream: ['--json'],
-          mode: {
-            suggest: '--mode suggest',
-            autoEdit: '--mode auto-edit',
-            fullAuto: '--mode full-auto'
-          }
-        },
-        requiresAuth: true,
-        authType: 'ChatGPT account / OPENAI_API_KEY',
-        packageName: AGENT_PACKAGES.CODEX,
-        color: AGENT_COLORS.CODEX
       }
+      // Only Claude - AgentMaestro is a wrapper for Claude Code only
+      // For Codex/Gemini access, Claude Code handles delegation via Subagents
     ];
 
     defaultAgents.forEach(config => {
