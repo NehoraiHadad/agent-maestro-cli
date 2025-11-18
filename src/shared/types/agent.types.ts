@@ -30,7 +30,6 @@ export interface Agent {
 
 export interface AgentConfig {
   inactivityTimeout?: number;
-  maxDelegationDepth?: number;
   showSpinner?: boolean;
   verbose?: boolean;
   planMode?: boolean;
@@ -59,13 +58,5 @@ export interface AgentExecutionOptions {
 export interface AgentExecutionResult {
   agent: string;
   content: string;
-  delegations: DelegationResult[];
   exitCode: number;
-}
-
-export interface DelegationResult {
-  fromAgent: string;
-  toAgent: string;
-  prompt: string;
-  result: string;
 }
