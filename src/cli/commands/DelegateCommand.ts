@@ -32,6 +32,14 @@ export class DelegateCommand {
     const repository = new AgentRepository();
 
     try {
+      // AgentMaestro only supports Claude Code directly
+      if (agentName !== 'claude') {
+        this.logger.error(`\n❌ AgentMaestro only supports Claude Code.`);
+        this.logger.info(`\n💡 Tip: Claude can delegate to Codex/Gemini automatically via Subagents.`);
+        this.logger.info(`   Simply ask Claude to use the agent you need!\n`);
+        process.exit(1);
+      }
+
       // Validate agent exists
       if (!repository.exists(agentName)) {
         this.logger.error(`\n❌ Unknown agent: ${agentName}`);

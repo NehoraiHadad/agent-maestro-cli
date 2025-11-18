@@ -33,20 +33,23 @@ export class ListCommand {
   static async execute(): Promise<void> {
     try {
       const repository = new AgentRepository();
-      const agents = repository.findAll();
-
-      this.logger.header('Available Agents');
-      console.log(); // Empty line
-
-      for (const agent of agents) {
-        const available = await this.checkAgentAvailability(agent);
-        this.formatAgentInfo(agent, available);
-        console.log(); // Empty line between agents
-      }
+      const claude = repository.findByName('claude');
 
       this.logger.separator();
-      this.logger.info('Use "maestro info <agent>" for detailed information');
-      this.logger.info('Use "maestro --agent <agent>" to start orchestration');
+      this.logger.maestro('AgentMaestro - Wrapper for Claude Code');
+      this.logger.separator();
+      console.log(); // Empty line
+
+      // Show Claude agent info
+      const available = await this.checkAgentAvailability(claude);
+      this.formatAgentInfo(claude, available);
+      console.log(); // Empty line
+
+      this.logger.separator();
+      this.logger.info('💡 Claude Code can delegate to Codex/Gemini via native Subagents');
+      this.logger.info('   Simply ask Claude to use the agent you need!');
+      console.log(); // Empty line
+      this.logger.info('Use "maestro info claude" for detailed information');
       this.logger.separator();
 
     } catch (error) {
