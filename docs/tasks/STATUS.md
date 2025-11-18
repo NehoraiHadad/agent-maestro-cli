@@ -9,7 +9,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 
 **Status**: In Progress
 **Started**: 2025-11-18
-**Completed**: 4 of 7 tasks (57%)
+**Completed**: 5 of 7 tasks (71%)
 **Total Tasks**: 7 (4 Critical, 3 Medium)
 
 ---
@@ -29,7 +29,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 
 | ID | Task | Status | Priority | Dependencies | Assignee | Notes |
 |----|------|--------|----------|--------------|----------|-------|
-| TASK-005 | Remove Infrastructure | ⏳ Pending | MEDIUM | None | - | CircuitBreaker, MetricsCollector, TimeoutManager, RetryManager |
+| TASK-005 | Remove Infrastructure | ✅ Complete | MEDIUM | None | - | Removed CircuitBreaker, MetricsCollector, TimeoutManager, RetryManager |
 | TASK-006 | Merge Small Files | ⏳ Pending | MEDIUM | None | - | ui/session/ folder (7→3 files) |
 | TASK-007 | Simplify Error Handling | ⏳ Pending | MEDIUM | None | - | Reduce from 6 error types to 2-3 |
 
@@ -73,6 +73,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 | 2025-11-18 | TASK-002 | ✅ Complete | Fixed all misleading UI messages. Updated SessionDisplay, StartCommand, ConsoleLogger, StatusUpdater, and Maestro to reflect wrapper role |
 | 2025-11-18 | TASK-003 | ✅ Complete | Removed delegation detection from StatusUpdater, Maestro, MessageProcessor, and type definitions. Removed delegations field from AgentExecutionResult and maxDelegationDepth from AgentConfig. All tests passing. |
 | 2025-11-18 | TASK-004 | ✅ Complete | Simplified agent management (Option A). AgentRepository now only contains Claude. Updated DelegateCommand, InfoCommand, and ListCommand to only support Claude with helpful messaging about Subagents. Added clarifying comments to agent constants. Build succeeds. |
+| 2025-11-18 | TASK-005 | ✅ Complete | Removed unnecessary infrastructure components. Deleted CircuitBreaker (150+ lines), MetricsCollector (100+ lines), TimeoutManager (90 lines), and RetryManager (100+ lines). Updated AgentRepository, Maestro, and PTYManager to remove usage. Removed infrastructure tests. 15 files changed, 1772 lines removed. All tests passing. |
 
 ---
 

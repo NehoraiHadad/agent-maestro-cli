@@ -13,7 +13,6 @@ import { ConfigManager, MaestroConfig } from './ConfigManager.js';
 import { SessionManager } from './SessionManager.js';
 import { LoggingManager } from '../logging/index.js';
 import { SessionIdExtractor } from './SessionIdExtractor.js';
-import { MetricsCollector } from '../monitoring/index.js';
 import { InputValidator } from '../../shared/utils/InputValidator.js';
 import {
   OrchestrationError,
@@ -25,10 +24,6 @@ import {
 export interface MaestroStats {
   totalMessages: number;
   sessionDuration: number;
-  totalExecutions: number;
-  successfulExecutions: number;
-  failedExecutions: number;
-  averageExecutionTime: number;
 }
 
 /**
@@ -45,7 +40,6 @@ export class Maestro {
   private statusUpdater: StatusUpdater;
   private loggingManager: LoggingManager;
   private sessionIdExtractor: SessionIdExtractor;
-  private metricsCollector: MetricsCollector;
   private spinner: Spinner | null = null;
   private isRunning: boolean = false;
 
@@ -89,7 +83,6 @@ export class Maestro {
     this.outputFormatter = new OutputFormatter();
     this.statusUpdater = new StatusUpdater();
     this.sessionIdExtractor = new SessionIdExtractor();
-    this.metricsCollector = new MetricsCollector();
   }
 
   /**
@@ -176,9 +169,6 @@ export class Maestro {
       }
     }
 
-    const executionId = `exec_${Date.now()}`;
-    this.metricsCollector.startExecution(executionId);
-
     try {
       // Log user message
       this.loggingManager.logUserMessage(message);
@@ -189,16 +179,11 @@ export class Maestro {
       // Execute primary agent
       const result = await this.executePrimaryAgent(message);
 
-      this.metricsCollector.endExecution(executionId, result.exitCode === 0);
-
       return result;
     } catch (error) {
-      this.metricsCollector.endExecution(executionId, false);
-
       // Enrich and re-throw
       const enrichedError = this.enrichError(error, {
         agent: this.primaryAgent.name,
-        executionId,
         operation: 'execution'
       });
 
@@ -254,32 +239,11 @@ export class Maestro {
    */
   getStats(): MaestroStats {
     const summary = this.sessionManager.getSummary();
-    const metrics = this.metricsCollector.getSummary();
 
     return {
       totalMessages: summary.messageCount,
-      sessionDuration: summary.duration,
-      totalExecutions: metrics.totalExecutions,
-      successfulExecutions: metrics.successfulExecutions,
-      failedExecutions: metrics.failedExecutions,
-      averageExecutionTime: metrics.averageExecutionTime
+      sessionDuration: summary.duration
     };
-  }
-
-  /**
-   * Get performance metrics
-   * @returns Metrics summary with execution statistics
-   */
-  getMetrics(): ReturnType<MetricsCollector['getSummary']> {
-    return this.metricsCollector.getSummary();
-  }
-
-  /**
-   * Export metrics as JSON
-   * @returns JSON string with all collected metrics
-   */
-  exportMetrics(): string {
-    return this.metricsCollector.export();
   }
 
   /**
