@@ -2,7 +2,7 @@
  * Agent entity - represents an AI agent in the system
  */
 import type { Agent as AgentType, AgentName, AgentFlags, AgentExecutionOptions } from '../../shared/types/index.js';
-import { AgentConfigError } from '../../shared/errors/index.js';
+import { MaestroError } from '../../shared/errors/index.js';
 
 export class Agent implements AgentType {
   readonly name: AgentName;
@@ -36,16 +36,18 @@ export class Agent implements AgentType {
    */
   private validate(config: AgentType): void {
     if (!config.name || !config.command) {
-      throw new AgentConfigError(
-        config.name || 'unknown',
-        'Missing required fields: name and command'
+      throw new MaestroError(
+        'Missing required fields: name and command',
+        'AGENT_CONFIG_ERROR',
+        { agentName: config.name || 'unknown' }
       );
     }
 
     if (!config.flags?.prompt) {
-      throw new AgentConfigError(
-        config.name,
-        'Missing prompt flag configuration'
+      throw new MaestroError(
+        'Missing prompt flag configuration',
+        'AGENT_CONFIG_ERROR',
+        { agentName: config.name }
       );
     }
   }

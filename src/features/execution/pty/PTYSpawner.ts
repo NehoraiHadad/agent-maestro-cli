@@ -4,7 +4,7 @@
 import * as pty from 'node-pty';
 import type { IPty } from 'node-pty';
 import type { PTYOptions } from '../../../shared/types/index.js';
-import { PTYSpawnError } from '../../../shared/errors/index.js';
+import { AgentError } from '../../../shared/errors/index.js';
 import {
   SAFE_ENV_ALLOWLIST,
   SENSITIVE_ENV_PATTERNS,
@@ -38,7 +38,11 @@ export class PTYSpawner {
       return ptyProcess;
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
-      throw new PTYSpawnError(command, reason);
+      throw new AgentError(
+        command,
+        `Failed to spawn process: ${reason}`,
+        'PTY_SPAWN_ERROR'
+      );
     }
   }
 

@@ -15,11 +15,9 @@ import { LoggingManager } from '../logging/index.js';
 import { SessionIdExtractor } from './SessionIdExtractor.js';
 import { InputValidator } from '../../shared/utils/InputValidator.js';
 import {
-  OrchestrationError,
-  AgentExecutionError,
-  OutputProcessingError,
-  SessionError
-} from '../../shared/errors/OrchestrationErrors.js';
+  MaestroError,
+  AgentError
+} from '../../shared/errors/index.js';
 
 export interface MaestroStats {
   totalMessages: number;
@@ -190,7 +188,9 @@ export class Maestro {
       this.loggingManager.error(
         'Maestro',
         `Execution failed: ${enrichedError.message}`,
-        enrichedError instanceof OrchestrationError ? enrichedError.context : {}
+        enrichedError instanceof MaestroError || enrichedError instanceof AgentError
+          ? (enrichedError as MaestroError | AgentError).context
+          : {}
       );
 
       this.logDetailedError(enrichedError, 'sendMessage');
@@ -270,44 +270,36 @@ export class Maestro {
       operation?: string;
     }
   ): Error {
-    // If it's already one of our custom errors, return as-is
-    // (it already has context embedded)
-    if (error instanceof OrchestrationError) {
+    // If it's already one of our errors, return as-is
+    if (error instanceof MaestroError || error instanceof AgentError) {
       return error;
     }
 
-    // Convert unknown errors to proper Error objects
     const message = error instanceof Error ? error.message : String(error);
     const stack = error instanceof Error ? error.stack : undefined;
 
-    // Create appropriate error type based on context
     let enrichedError: Error;
 
-    if (context.operation === 'execution') {
-      enrichedError = new AgentExecutionError(
-        context.agent || 'unknown',
+    // Determine error type based on context
+    if (context.agent) {
+      // Agent-related error
+      enrichedError = new AgentError(
+        context.agent,
         message,
+        'AGENT_ERROR',
         undefined,
-        { ...context }
-      );
-    } else if (context.operation === 'output_processing') {
-      enrichedError = new OutputProcessingError(
-        context.agent || 'unknown',
-        message,
-        undefined,
-        { ...context }
-      );
-    } else if (context.operation === 'session') {
-      enrichedError = new SessionError(
-        message,
-        context.sessionId,
         { ...context }
       );
     } else {
-      enrichedError = new OrchestrationError('ORCHESTRATION_ERROR', message, { ...context });
+      // General maestro error
+      enrichedError = new MaestroError(
+        message,
+        'MAESTRO_ERROR',
+        { ...context }
+      );
     }
 
-    // Preserve original stack trace
+    // Preserve stack trace
     if (stack) {
       enrichedError.stack = stack;
     }
@@ -328,13 +320,12 @@ export class Maestro {
       stack: error.stack,
     };
 
-    // Check specific error types first (before base class)
-    if (error instanceof AgentExecutionError) {
+    if (error instanceof AgentError) {
       errorInfo.code = error.code;
-      errorInfo.context = error.context;
       errorInfo.agentName = error.agentName;
       errorInfo.exitCode = error.exitCode;
-    } else if (error instanceof OrchestrationError) {
+      errorInfo.context = error.context;
+    } else if (error instanceof MaestroError) {
       errorInfo.code = error.code;
       errorInfo.context = error.context;
     }
@@ -499,7 +490,9 @@ export class Maestro {
             this.loggingManager.error(
               'Maestro',
               `Output processing failed: ${enrichedError.message}`,
-              enrichedError instanceof OrchestrationError ? enrichedError.context : {}
+              enrichedError instanceof MaestroError || enrichedError instanceof AgentError
+                ? (enrichedError as MaestroError | AgentError).context
+                : {}
             );
 
             this.logDetailedError(enrichedError, 'output_processing');
@@ -521,7 +514,9 @@ export class Maestro {
         this.loggingManager.error(
           'Maestro',
           `Agent execution failed: ${enrichedError.message}`,
-          enrichedError instanceof OrchestrationError ? enrichedError.context : {}
+          enrichedError instanceof MaestroError || enrichedError instanceof AgentError
+            ? (enrichedError as MaestroError | AgentError).context
+            : {}
         );
 
         this.logDetailedError(enrichedError, 'agent_execution');

@@ -3,7 +3,7 @@
  */
 import { Agent } from '../entities/Agent.js';
 import type { Agent as AgentType, AgentName } from '../../shared/types/index.js';
-import { AgentNotFoundError } from '../../shared/errors/index.js';
+import { MaestroError } from '../../shared/errors/index.js';
 import { AGENT_NAMES, AGENT_COLORS, AGENT_PACKAGES } from '../../shared/constants/index.js';
 
 export class AgentRepository {
@@ -60,7 +60,11 @@ export class AgentRepository {
   findByName(name: string): Agent {
     const agent = this.agents.get(name as AgentName);
     if (!agent) {
-      throw new AgentNotFoundError(name);
+      throw new MaestroError(
+        `Agent '${name}' not found`,
+        'AGENT_NOT_FOUND',
+        { agentName: name }
+      );
     }
     return agent;
   }

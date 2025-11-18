@@ -3,7 +3,7 @@
  */
 import type { IPty } from 'node-pty';
 import type { PTYProcessInfo, PTYExitInfo } from '../../../shared/types/index.js';
-import { PTYProcessNotFoundError } from '../../../shared/errors/index.js';
+import { AgentError } from '../../../shared/errors/index.js';
 import {
   DEFAULT_MAX_BUFFER_SIZE,
   BUFFER_WARNING_THRESHOLD,
@@ -48,7 +48,11 @@ export class PTYLifecycle {
   get(id: string): PTYProcessInfo {
     const info = this.processes.get(id);
     if (!info) {
-      throw new PTYProcessNotFoundError(id);
+      throw new AgentError(
+        id,
+        'PTY process not found',
+        'PTY_NOT_FOUND'
+      );
     }
     return info;
   }
