@@ -9,7 +9,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 
 **Status**: In Progress
 **Started**: 2025-11-18
-**Completed**: 1 of 7 tasks (14%)
+**Completed**: 2 of 7 tasks (29%)
 **Total Tasks**: 7 (4 Critical, 3 Medium)
 
 ---
@@ -21,7 +21,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 | ID | Task | Status | Priority | Dependencies | Assignee | Notes |
 |----|------|--------|----------|--------------|----------|-------|
 | TASK-001 | Remove/Simplify Parsers | ✅ Complete | CRITICAL | None | - | All parsers simplified to <50 lines |
-| TASK-002 | Fix UI Messages | ⏳ Pending | CRITICAL | None | - | Misleading "Auto-delegation" messages |
+| TASK-002 | Fix UI Messages | ✅ Complete | CRITICAL | None | - | All messages reflect wrapper role |
 | TASK-003 | Remove Delegation Detection | ⏳ Pending | CRITICAL | TASK-001 | - | isDelegationCompletion, activeDelegations |
 | TASK-004 | Simplify Agent Management | ⏳ Pending | CRITICAL | None | - | AgentRepository should only handle Claude |
 
@@ -70,6 +70,7 @@ Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unne
 |------|------|--------|-------|
 | 2025-11-18 | Initial Assessment | ✅ Complete | Created task breakdown |
 | 2025-11-18 | TASK-001 | ✅ Complete | Simplified parsers: ClaudeParser (24 lines), CodexParser (24 lines), GeminiParser (24 lines), BaseParser (18 lines), StreamProcessor (53 lines) |
+| 2025-11-18 | TASK-002 | ✅ Complete | Fixed all misleading UI messages. Updated SessionDisplay, StartCommand, ConsoleLogger, StatusUpdater, and Maestro to reflect wrapper role |
 
 ---
 

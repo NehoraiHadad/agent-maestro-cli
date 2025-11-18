@@ -392,9 +392,9 @@ export class Maestro {
       messageLength: message.length
     });
 
-    // Start spinner with wrapper indication
+    // Start spinner
     if (this.spinner) {
-      this.spinner.start(`🤖 [Claude] Processing your request...`, this.primaryAgent.color);
+      this.spinner.start(`🤖 Claude Code is processing...`, this.primaryAgent.color);
     }
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
@@ -485,9 +485,9 @@ export class Maestro {
             // Update spinner with final status
             if (this.spinner) {
               if (exitCode === 0) {
-                this.spinner.succeed(`🤖 [Claude] Task completed successfully`);
+                this.spinner.succeed(`✓ Claude Code completed`);
               } else {
-                this.spinner.fail(`🤖 [Claude] Task failed (exit code ${exitCode})`);
+                this.spinner.fail(`✗ Claude Code failed (exit code ${exitCode})`);
               }
             }
 
@@ -520,7 +520,7 @@ export class Maestro {
 
           } catch (error) {
             if (this.spinner) {
-              this.spinner.fail(`🤖 [Claude] Error processing output`);
+              this.spinner.fail(`✗ Error processing output`);
             }
 
             // Get session ID if available
@@ -547,7 +547,7 @@ export class Maestro {
 
       } catch (error) {
         if (this.spinner) {
-          this.spinner.fail(`🤖 [Claude] Execution error`);
+          this.spinner.fail(`✗ Execution error`);
         }
 
         const enrichedError = this.enrichError(error, {
