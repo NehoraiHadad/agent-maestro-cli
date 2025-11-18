@@ -6,7 +6,6 @@
 import { Agent } from '../../domain/entities/index.js';
 import { AgentRepository } from '../../domain/index.js';
 import { PTYManager } from '../execution/pty/index.js';
-import { StreamProcessor } from '../streaming/index.js';
 import { OutputFormatter } from '../output/index.js';
 import { Spinner, StatusUpdater } from '../ui/index.js';
 import type { AgentExecutionResult } from '../../shared/types/index.js';
@@ -40,7 +39,6 @@ export class Maestro {
   private primaryAgent: Agent;
   private config: ConfigManager;
   private ptyManager: PTYManager;
-  private streamProcessor: StreamProcessor;
   private outputFormatter: OutputFormatter;
   private agentRepository: AgentRepository;
   private sessionManager: SessionManager;
@@ -88,7 +86,6 @@ export class Maestro {
       maxLogSizeBytes: this.config.get('maxLogSizeBytes')
     });
 
-    this.streamProcessor = new StreamProcessor();
     this.outputFormatter = new OutputFormatter();
     this.statusUpdater = new StatusUpdater(undefined, this.loggingManager);
     this.sessionIdExtractor = new SessionIdExtractor();
@@ -585,19 +582,8 @@ export class Maestro {
       // This ensures we have the Session ID for the NEXT message
       this.tryExtractSessionId(data);
 
-      // Process streaming events for status updates
-      const lines = data.split('\n');
-      for (const line of lines) {
-        // Update spinner with status
-        const statusUpdate = this.streamProcessor.processEvent(this.primaryAgent.name, line);
-        if (statusUpdate && this.statusUpdater) {
-          this.statusUpdater.update(
-            this.primaryAgent.name,
-            statusUpdate.status,
-            this.primaryAgent.color
-          );
-        }
-      }
+      // No complex parsing - data passes through
+      // Spinner updates happen at start/end of execution in executePrimaryAgent
     });
   }
 
