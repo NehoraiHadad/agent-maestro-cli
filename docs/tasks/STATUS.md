@@ -1,0 +1,93 @@
+# 📊 AgentMaestro Refactoring - Task Status
+
+## 🎯 Project Goal
+Simplify AgentMaestro to be a **thin wrapper** around Claude Code, removing unnecessary complexity and aligning with the core principle: "Maestro is a wrapper for the native interfaces of Claude Code, Codex, and Gemini."
+
+---
+
+## 📈 Overall Progress
+
+**Status**: Not Started
+**Started**: -
+**Completed**: -
+**Total Tasks**: 7 (4 Critical, 3 Medium)
+
+---
+
+## 📋 Task Overview
+
+### 🔴 Critical Tasks (Must Do)
+
+| ID | Task | Status | Priority | Dependencies | Assignee | Notes |
+|----|------|--------|----------|--------------|----------|-------|
+| TASK-001 | Remove/Simplify Parsers | ⏳ Pending | CRITICAL | None | - | ClaudeParser, CodexParser, GeminiParser |
+| TASK-002 | Fix UI Messages | ⏳ Pending | CRITICAL | None | - | Misleading "Auto-delegation" messages |
+| TASK-003 | Remove Delegation Detection | ⏳ Pending | CRITICAL | TASK-001 | - | isDelegationCompletion, activeDelegations |
+| TASK-004 | Simplify Agent Management | ⏳ Pending | CRITICAL | None | - | AgentRepository should only handle Claude |
+
+### 🟡 Medium Priority Tasks (Should Do)
+
+| ID | Task | Status | Priority | Dependencies | Assignee | Notes |
+|----|------|--------|----------|--------------|----------|-------|
+| TASK-005 | Remove Infrastructure | ⏳ Pending | MEDIUM | None | - | CircuitBreaker, MetricsCollector, TimeoutManager, RetryManager |
+| TASK-006 | Merge Small Files | ⏳ Pending | MEDIUM | None | - | ui/session/ folder (7→3 files) |
+| TASK-007 | Simplify Error Handling | ⏳ Pending | MEDIUM | None | - | Reduce from 6 error types to 2-3 |
+
+---
+
+## 🔄 Parallel Execution Groups
+
+### Group A (Can run in parallel):
+- TASK-001 (Parsers)
+- TASK-002 (UI Messages)
+- TASK-004 (Agent Management)
+- TASK-005 (Infrastructure)
+- TASK-006 (Merge Files)
+- TASK-007 (Error Handling)
+
+### Group B (Depends on Group A):
+- TASK-003 (Delegation Detection) - Depends on TASK-001
+
+---
+
+## 📊 Metrics
+
+### Before Refactoring
+- TypeScript files: ~80
+- Lines of code: ~5,000-6,000
+- Complexity: High (Infrastructure: 40%, UI: 30%, Parsing: 20%, Core: 10%)
+
+### After Refactoring (Target)
+- TypeScript files: ~30-40
+- Lines of code: ~2,000-2,500
+- Complexity: Low (Core: 40%, UI: 40%, Infrastructure: 10%, Parsing: 10%)
+
+---
+
+## 📝 Change Log
+
+| Date | Task | Status | Notes |
+|------|------|--------|-------|
+| 2025-11-18 | Initial Assessment | ✅ Complete | Created task breakdown |
+| - | - | - | - |
+
+---
+
+## 🎯 Success Criteria
+
+- [ ] All critical tasks completed
+- [ ] All tests passing
+- [ ] Build succeeds without errors
+- [ ] README updated to reflect changes
+- [ ] Code complexity reduced by ~50%
+- [ ] File count reduced by ~50%
+- [ ] UI messages align with "wrapper" principle
+
+---
+
+## 📌 Notes
+
+- Each task has a detailed file in `docs/tasks/TASK-XXX-*.md`
+- Update this file after completing each task
+- Delete task files after completion
+- Run `npm run build && npm run test` after each task

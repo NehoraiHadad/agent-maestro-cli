@@ -1,134 +1,105 @@
-# 📁 Task Files Directory
+# 📋 AgentMaestro Refactoring Tasks
 
-**תיקייה זו מכילה קבצי משימות מפורטים לכל Phase.**
-
----
-
-## 📋 קבצים בתיקייה
-
-כל Phase מיוצג על ידי קובץ נפרד:
-
-1. **phase-1-security-fixes.md** - תיקוני אבטחה קריטיים (PARALLEL)
-2. **phase-2-utilities.md** - יצירת Utility Classes (PARALLEL)
-3. **phase-3-refactoring.md** - רפקטורינג ארכיטקטוני (SEQUENTIAL)
-4. **phase-4-code-quality.md** - שיפורי איכות קוד (PARALLEL)
-5. **phase-5-features.md** - Features חדשים (PARALLEL)
-6. **phase-6-testing.md** - בדיקות ותיעוד (PARALLEL)
+This directory contains task files for the AgentMaestro refactoring project.
 
 ---
 
-## 🚀 איך משתמשים
+## 📁 Directory Structure
 
-### שלב 1: קרא את המדריך המרכזי
-ראשית, קרא את `docs/AGENT_PROMPTS.md` - זה המסמך המרכזי עם כל הפרומפטים.
-
-### שלב 2: שלח פרומפט לסוכן
-העתק את הפרומפט המתאים מ-`AGENT_PROMPTS.md` ושלח לסוכן.
-
-לדוגמה:
 ```
-בצע את כל המשימות מהקובץ docs/tasks/phase-1-security-fixes.md במקביל.
-```
-
-### שלב 3: הסוכן מבצע
-הסוכן יקרא את קובץ ה-Phase הרלוונטי ויבצע את כל המשימות.
-
-### שלב 4: מחק את הקובץ
-כשהסוכן מסיים, הוא ימחק את קובץ ה-Phase (חלק מההוראות בקובץ).
-
----
-
-## ⚠️ כללים חשובים
-
-### ❌ אל תערוך את הקבצים באופן ידני
-הקבצים נועדו להיקרא על ידי סוכנים בלבד.
-
-### ✅ מחק קבצים שהסתיימו
-כל Phase שמסתיים - הקובץ שלו נמחק. זה עוזר לעקוב אחרי ההתקדמות.
-
-### ✅ עדכן את Tracker
-אחרי כל Phase, עדכן את `docs/IMPLEMENTATION_TRACKER.md`.
-
----
-
-## 📊 מבנה קובץ Phase
-
-כל קובץ Phase מכיל:
-
-```markdown
-# Phase X: [כותרת]
-
-**Execution Mode:** PARALLEL/SEQUENTIAL
-**Estimated Time:** X minutes
-
----
-
-## Task X.1: [שם משימה]
-[הוראות מפורטות]
-
-**Status:** [ ] Completed
-
----
-
-## Task X.2: [שם משימה]
-[הוראות מפורטות]
-
-**Status:** [ ] Completed
-
----
-
-## Post-Completion Checklist
-- [ ] Build passes
-- [ ] Update tracker
-- [ ] Delete this file
+docs/tasks/
+├── README.md                                  # This file - overview
+├── STATUS.md                                  # Central status tracker
+├── PROMPTS.md                                 # Ready-to-use agent prompts
+├── TASK-001-remove-parsers.md                # Parser simplification
+├── TASK-002-fix-ui-messages.md               # UI message fixes
+├── TASK-003-remove-delegation-detection.md   # Delegation detection removal
+├── TASK-004-simplify-agent-management.md     # Agent management simplification
+├── TASK-005-remove-infrastructure.md         # Infrastructure removal
+├── TASK-006-merge-small-files.md             # File merging
+└── TASK-007-simplify-error-handling.md       # Error handling simplification
 ```
 
 ---
 
-## 🔄 מעקב התקדמות
+## 🎯 Purpose
 
-### איך לדעת איפה אתה:
-
-1. **בדוק את התיקייה הזו** - קבצים שנמחקו = Phases שהסתיימו
-2. **בדוק את `docs/IMPLEMENTATION_TRACKER.md`** - טבלת סטטוס מלאה
-3. **ספור קבצים:**
-   - 6 קבצים = לא התחלת
-   - 3 קבצים = באמצע
-   - 0 קבצים = סיימת! 🎉
+This task system enables:
+- **Organized execution**: Each task is a complete, self-contained specification
+- **Parallel work**: Multiple agents can work on different tasks simultaneously
+- **Progress tracking**: STATUS.md provides centralized progress visibility
+- **Easy delegation**: PROMPTS.md contains ready-to-use prompts for agents
+- **Clear documentation**: Each task file documents the problem, solution, and acceptance criteria
 
 ---
 
-## 📁 מבנה תיקיות הפרויקט
+## 📊 Task Priority
 
-```
-docs/
-├── IMPLEMENTATION_TRACKER.md    ← מסמך מעקב מרכזי
-├── AGENT_PROMPTS.md            ← פרומפטים מוכנים לשליחה
-└── tasks/                       ← התיקייה שאתה נמצא בה עכשיו
-    ├── README.md                ← הקובץ הזה
-    ├── phase-1-security-fixes.md
-    ├── phase-2-utilities.md
-    ├── phase-3-refactoring.md
-    ├── phase-4-code-quality.md
-    ├── phase-5-features.md
-    └── phase-6-testing.md
-```
+### 🔴 Critical (Must Complete)
+1. **TASK-001**: Remove/Simplify Parsers
+2. **TASK-002**: Fix UI Messages
+3. **TASK-003**: Remove Delegation Detection (depends on TASK-001)
+4. **TASK-004**: Simplify Agent Management
+
+### 🟡 Medium (Should Complete)
+5. **TASK-005**: Remove Infrastructure
+6. **TASK-006**: Merge Small Files
+7. **TASK-007**: Simplify Error Handling
 
 ---
 
-## 🎯 כשסיימת הכל
+## 🚀 Quick Start
 
-כשכל 6 קבצי ה-Phase נמחקו:
+### Option 1: Single Task Execution
 
-1. ✅ המעקב ב-`IMPLEMENTATION_TRACKER.md` מראה 100%
-2. ✅ תיקיית `tasks/` ריקה (מלבד README זה)
-3. ✅ גרסה 2.1.0 ב-package.json
-4. ✅ CHANGELOG.md קיים
-5. ✅ כל הבדיקות עוברות
+1. **Choose a task** from the list above
+2. **Open** PROMPTS.md
+3. **Copy** the prompt for your chosen task
+4. **Send** to an AI agent (Claude, Codex, etc.)
+5. **Monitor** progress in STATUS.md
 
-**אז אפשר גם למחק תיקייה זו!** (אופציונלי)
+### Option 2: Parallel Execution (Faster)
+
+1. **Open** PROMPTS.md
+2. **Use** the "Multi-Task Execution (Parallel)" prompt
+3. **Execute** tasks 1,2,4,5,6,7 simultaneously
+4. **Wait** for completion
+5. **Then execute** TASK-003 (depends on TASK-001)
 
 ---
 
-**נוצר:** 2025-01-17
-**מטרה:** ניהול משימות מסודר לשדרוג AgentMaestro
+## 🔄 Workflow
+
+### For Each Task:
+
+1. **Before Starting**:
+   - Check STATUS.md for dependencies
+   - Read the complete task file
+   - Understand the acceptance criteria
+
+2. **During Execution**:
+   - Follow steps sequentially
+   - Test frequently (npm run build && npm run test)
+   - Keep notes of any issues
+
+3. **After Completion**:
+   - Verify all acceptance criteria
+   - Update STATUS.md
+   - Delete the task file
+   - Commit changes
+
+---
+
+## ✅ Success Criteria
+
+The refactoring is complete when:
+- [ ] All 7 tasks are marked ✅ Complete in STATUS.md
+- [ ] All task files are deleted
+- [ ] npm run build succeeds
+- [ ] npm run test passes all tests
+- [ ] Manual testing works correctly
+- [ ] Code complexity reduced by ~50%
+
+---
+
+Happy refactoring! 🚀
