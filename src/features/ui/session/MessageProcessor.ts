@@ -39,11 +39,6 @@ export class MessageProcessor {
       console.log('\n' + chalk.magenta.bold(`${result.agent} > `));
       console.log(result.content);
 
-      // Show delegations if any
-      if (result.delegations && result.delegations.length > 0) {
-        this.displayDelegations(result.delegations.length);
-      }
-
       // Resume readline for next input
       onResume();
 
@@ -52,15 +47,6 @@ export class MessageProcessor {
       // Resume readline even on error
       onResume();
     }
-  }
-
-  /**
-   * Display delegation information
-   */
-  private displayDelegations(count: number): void {
-    console.log('\n' + chalk.cyan('━'.repeat(60)));
-    console.log(chalk.cyan(`✨ ${count} delegation(s) executed`));
-    console.log(chalk.cyan('━'.repeat(60)));
   }
 
   /**

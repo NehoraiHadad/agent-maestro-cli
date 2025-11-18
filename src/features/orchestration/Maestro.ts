@@ -87,7 +87,7 @@ export class Maestro {
     });
 
     this.outputFormatter = new OutputFormatter();
-    this.statusUpdater = new StatusUpdater(undefined, this.loggingManager);
+    this.statusUpdater = new StatusUpdater();
     this.sessionIdExtractor = new SessionIdExtractor();
     this.metricsCollector = new MetricsCollector();
   }
@@ -510,11 +510,10 @@ export class Maestro {
             // Add assistant message to session
             this.sessionManager.addAssistantMessage(cleanedOutput, this.primaryAgent.name);
 
-            // Resolve with result (no delegations)
+            // Resolve with result
             resolve({
               agent: this.primaryAgent.name,
               content: cleanedOutput,
-              delegations: [], // Claude Code handles delegations via Skills/Subagents
               exitCode
             });
 

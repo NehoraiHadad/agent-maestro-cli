@@ -3,9 +3,7 @@
  * Updates spinner based on agent status changes
  */
 
-import chalk from 'chalk';
 import { Spinner } from './Spinner.js';
-import type { LoggingManager } from '../../logging/index.js';
 
 /**
  * Manages spinner updates based on agent activity
@@ -13,16 +11,13 @@ import type { LoggingManager } from '../../logging/index.js';
 export class StatusUpdater {
   private spinner: Spinner | null = null;
   private lastStatus: string = '';
-  private loggingManager: LoggingManager | null = null;
 
   /**
    * Create a new StatusUpdater
    * @param spinner - Optional spinner instance to manage
-   * @param loggingManager - Optional logging manager for delegation tracking
    */
-  constructor(spinner?: Spinner, loggingManager?: LoggingManager) {
+  constructor(spinner?: Spinner) {
     this.spinner = spinner || null;
-    this.loggingManager = loggingManager || null;
   }
 
   /**
@@ -44,17 +39,6 @@ export class StatusUpdater {
       return;
     }
 
-    // Check for delegation start marker
-    if (status.startsWith('🔄 DELEGATION_START:')) {
-      const delegateeName = status.replace('🔄 DELEGATION_START:', '').trim();
-      this.showDelegationNotification(delegateeName);
-      // Update spinner with delegation status
-      const delegationStatus = `delegating to ${delegateeName}...`;
-      this.spinner.update(this.formatStatus(agentName, delegationStatus), 'cyan');
-      this.lastStatus = delegationStatus;
-      return;
-    }
-
     // Skip redundant updates
     if (!this.shouldUpdate(status)) {
       return;
@@ -63,20 +47,6 @@ export class StatusUpdater {
     const formattedStatus = this.formatStatus(agentName, status);
     this.spinner.update(formattedStatus, color);
     this.lastStatus = status;
-  }
-
-  /**
-   * Show delegation notification to user
-   * @param delegateeName - Name of the subagent being delegated to
-   */
-  private showDelegationNotification(delegateeName: string): void {
-    // Show that Claude is using a subagent (not maestro delegating)
-    console.log(`\n  ${chalk.yellow('→')} ${chalk.cyan.bold(`[${delegateeName}]`)} ${chalk.gray('Claude is delegating...')}`);
-
-    // Log delegation to file
-    if (this.loggingManager) {
-      this.loggingManager.info('StatusUpdater', `Claude delegating to ${delegateeName} subagent`);
-    }
   }
 
   /**
