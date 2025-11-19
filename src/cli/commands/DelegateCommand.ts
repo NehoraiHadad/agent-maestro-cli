@@ -117,24 +117,12 @@ export class DelegateCommand {
 
   /**
    * Build command arguments for one-shot execution
+   *
+   * Note: AgentMaestro only supports Claude Code.
+   * This method is simplified for Claude-only execution.
    */
   private static buildArgs(agentName: AgentName, task: string): string[] {
-    switch (agentName) {
-      case 'claude':
-        // claude -p "task" (one-shot mode)
-        return ['-p', task];
-
-      case 'codex':
-        // codex exec "task" (non-interactive) with full-access flag to skip approvals
-        return ['--dangerously-bypass-approvals-and-sandbox', 'exec', task];
-
-      case 'gemini':
-        // gemini -p "task" (prompt mode)
-        return ['-p', task];
-
-      default:
-        // Fallback: assume -p flag
-        return ['-p', task];
-    }
+    // claude -p "task" (one-shot mode)
+    return ['-p', task];
   }
 }
