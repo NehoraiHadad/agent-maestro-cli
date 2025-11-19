@@ -14,6 +14,7 @@ import {
   type LogLevel
 } from '../../shared/constants/index.js';
 import { MaestroError } from '../../shared/errors/index.js';
+import type { StatusDisplayConfig } from '../../shared/types/ui.types.js';
 
 export interface MaestroConfig {
   inactivityTimeout: number;
@@ -29,6 +30,9 @@ export interface MaestroConfig {
   logRotation: boolean;
   maxLogFiles: number;
   maxLogSizeBytes: number;
+
+  // Status display configuration
+  statusDisplay?: Partial<StatusDisplayConfig>;
 }
 
 export interface ValidationResult {
@@ -160,7 +164,14 @@ export class ConfigManager {
       logDirectory: DEFAULT_LOG_DIRECTORY,
       logRotation: DEFAULT_LOG_ROTATION,
       maxLogFiles: DEFAULT_MAX_LOG_FILES,
-      maxLogSizeBytes: DEFAULT_MAX_LOG_SIZE_BYTES
+      maxLogSizeBytes: DEFAULT_MAX_LOG_SIZE_BYTES,
+
+      // Status display defaults (uses StatusDisplay's internal defaults)
+      statusDisplay: {
+        enabled: true,
+        showHeader: true,
+        showProgress: true
+      }
     };
   }
 }
