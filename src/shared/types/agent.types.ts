@@ -2,7 +2,10 @@
  * Core types for Agent entities
  */
 
-export type AgentName = 'claude' | 'gemini' | 'codex';
+/**
+ * Agent name type - AgentMaestro only supports Claude Code
+ */
+export type AgentName = 'claude';
 
 export interface AgentFlags {
   prompt: string;
@@ -50,9 +53,6 @@ export interface AgentExecutionOptions {
 
   /** Enable plan mode (research without execution) */
   planMode?: boolean;
-
-  /** Enable dangerous mode for Codex (bypass approvals) */
-  dangerousMode?: boolean;
 }
 
 export interface AgentExecutionResult {
