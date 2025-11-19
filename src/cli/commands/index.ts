@@ -11,3 +11,4 @@ export * from './LoadSessionCommand.js';
 export * from './ListSessionsCommand.js';
 export * from './DeleteSessionCommand.js';
 export * from './ExportSessionCommand.js';
+export * from './ConfigCommand.js';
