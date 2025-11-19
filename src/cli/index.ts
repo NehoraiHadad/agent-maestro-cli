@@ -15,6 +15,9 @@ import { InfoCommand } from './commands/InfoCommand.js';
 import { SkillsCommand } from './commands/SkillsCommand.js';
 import { InitCommand } from './commands/InitCommand.js';
 import { DelegateCommand } from './commands/DelegateCommand.js';
+import { ListSessionsCommand } from './commands/ListSessionsCommand.js';
+import { DeleteSessionCommand } from './commands/DeleteSessionCommand.js';
+import { ExportSessionCommand } from './commands/ExportSessionCommand.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(
@@ -35,6 +38,9 @@ DelegateCommand.register(program);
 ListCommand.register(program);
 InfoCommand.register(program);
 SkillsCommand.register(program);
+ListSessionsCommand.register(program);
+DeleteSessionCommand.register(program);
+ExportSessionCommand.register(program);
 
 // Graceful shutdown handling
 let isShuttingDown = false;
@@ -76,3 +82,29 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Parse command line arguments
 program.parse(process.argv);
+
+// Handle session management options
+const options = program.opts();
+
+// Execute session commands if provided
+(async () => {
+  try {
+    if (options.listSessions) {
+      await ListSessionsCommand.execute();
+      process.exit(0);
+    }
+
+    if (options.deleteSession) {
+      await DeleteSessionCommand.execute(options.deleteSession);
+      process.exit(0);
+    }
+
+    if (options.export) {
+      await ExportSessionCommand.execute(options.export, options.format);
+      process.exit(0);
+    }
+  } catch (error) {
+    console.error('Error:', error instanceof Error ? error.message : String(error));
+    process.exit(1);
+  }
+})();

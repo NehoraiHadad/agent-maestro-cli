@@ -247,6 +247,14 @@ export class Maestro {
   }
 
   /**
+   * Export current session
+   * @returns Session export data
+   */
+  exportSession() {
+    return this.sessionManager.export();
+  }
+
+  /**
    * Get logging manager for external access
    * @returns The logging manager instance
    */
