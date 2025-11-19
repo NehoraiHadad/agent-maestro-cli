@@ -1,8 +1,66 @@
 # AgentMaestro Architecture
 
+## Strategic Decision: Pure Wrapper Architecture
+
+**Decision Date:** 2025-11-19
+**Status:** ✅ Implemented
+**Task:** TASK-002
+
+### Chosen Strategy: Pure Wrapper for Claude Code
+
+AgentMaestro is a **pure wrapper** for Claude Code. It does NOT provide direct access to Codex or Gemini. Instead, all agent delegation is handled through Claude Code's native Subagent system.
+
+#### Why Pure Wrapper?
+
+1. **Simplicity** - Less code to maintain, fewer potential bugs
+2. **Leverage Native Features** - Claude Code already has robust Subagent delegation
+3. **Clear Value Proposition** - We add value through wrapper features (Plan Mode, session management, live delegation detection), not by reimplementing agent access
+4. **Alignment** - Matches our README messaging and project identity
+5. **Maintainability** - Only track one CLI's API changes
+
+#### How to Use Codex/Gemini
+
+Users access Codex and Gemini through Claude Code's Subagent system:
+
+1. **Install the delegation agents** (optional but recommended):
+   ```bash
+   claude plugin install maestro-delegation-suite
+   ```
+
+2. **Ask Claude to delegate** naturally:
+   ```bash
+   $ maestro
+   > Build a Flask API with security best practices
+
+   # Claude analyzes and may delegate:
+   # - Code generation → codex-delegator Subagent (runs actual Codex CLI)
+   # - Research → gemini-delegator Subagent (runs actual Gemini CLI)
+   ```
+
+3. **Claude decides when to delegate** based on task requirements and the delegation advisor skill
+
+#### What AgentMaestro Provides
+
+- ✅ Enhanced Claude Code wrapper with Plan Mode support
+- ✅ Session continuity and management
+- ✅ Real-time delegation detection and display
+- ✅ Rich logging and progress indicators
+- ✅ Plugin integration for Skills and Subagents
+- ❌ NOT direct Codex/Gemini CLI access (use Claude's Subagents instead)
+
+#### Rejected Alternative: Hybrid System
+
+We considered a hybrid approach with direct access to all three agents, but rejected it because:
+- Higher complexity and maintenance burden
+- Duplicates Claude Code's existing Subagent functionality
+- Contradicts "wrapper" positioning
+- Would require maintaining integrations for 3 separate CLIs
+
+---
+
 ## Overview
 
-AgentMaestro is a meta-orchestrator that enables collaborative multi-agent workflows between Claude Code, Gemini CLI, and OpenAI Codex.
+AgentMaestro is a specialized wrapper for Claude Code that enhances it with additional features while leveraging Claude Code's native Subagent system for multi-agent workflows.
 
 ## System Architecture
 

@@ -78,6 +78,48 @@ $ maestro --plan-mode
 [No files are modified until you approve the plan]
 ```
 
+## 🏗️ Architecture: Pure Wrapper Design
+
+**Important:** AgentMaestro is a **pure wrapper** for Claude Code. It does NOT provide direct CLI access to Codex or Gemini.
+
+### How Multi-Agent Workflows Work
+
+```
+┌─────────────────────────────────────────┐
+│  You run: maestro                       │
+│  ↓                                      │
+│  AgentMaestro launches Claude Code      │
+│  ↓                                      │
+│  Claude analyzes your request           │
+│  ↓                                      │
+│  Claude may spawn Subagents:            │
+│    • codex-delegator (for code gen)     │
+│    • gemini-delegator (for research)    │
+│  ↓                                      │
+│  Subagents run actual Codex/Gemini CLIs │
+│  ↓                                      │
+│  Results return to Claude               │
+│  ↓                                      │
+│  Claude provides final response         │
+└─────────────────────────────────────────┘
+```
+
+### Why This Design?
+
+1. **Simplicity** - Less code, fewer bugs
+2. **Leverage Claude Code's power** - Use native Subagent system
+3. **Automatic delegation** - Claude decides when to use each agent
+4. **Consistent experience** - All interactions through Claude's interface
+
+### ⚠️ What This Means for You
+
+- ✅ **Do this:** `maestro` (starts Claude, which can delegate to others)
+- ✅ **Do this:** `maestro delegate claude "task"` (direct Claude access)
+- ❌ **Don't do this:** `maestro delegate codex "task"` (not supported - use Claude's Subagents)
+- ❌ **Don't do this:** `maestro delegate gemini "task"` (not supported - use Claude's Subagents)
+
+**To use Codex/Gemini:** Just ask Claude naturally! Claude will delegate automatically via Subagents.
+
 ## 📦 Installation
 
 ### Prerequisites
@@ -240,37 +282,40 @@ maestro --plan-mode -m "plan a refactoring of the auth module"
 
 ### Direct Delegation (One-Shot Tasks)
 
-Delegate specific tasks directly to specialized agents in one-shot mode:
+Execute Claude Code in one-shot mode for quick tasks:
 
 ```bash
-# Delegate to Codex for fast code generation
-maestro delegate codex "implement user authentication with JWT"
-
-# Delegate to Gemini for research
-maestro delegate gemini "research best practices for React state management in 2025"
-
-# Delegate to Claude for security audit
+# Quick task with Claude
 maestro delegate claude "perform security audit of the authentication system"
+
+# One-shot code generation (Claude may delegate to Codex via Subagents)
+maestro delegate claude "implement user authentication with JWT"
+
+# One-shot research (Claude may delegate to Gemini via Subagents)
+maestro delegate claude "research best practices for React state management in 2025"
 ```
 
 **When to use direct delegation:**
 - Quick, isolated tasks that don't need conversation context
-- Testing specific agents
 - CI/CD pipelines or automation scripts
-- When you know exactly which agent you want
+- Single-command operations
 
 **Difference from interactive mode:**
-- Interactive (`maestro`): Claude decides when to delegate automatically
-- Direct (`maestro delegate`): You explicitly choose the agent
+- Interactive (`maestro`): Multi-turn conversation with session continuity
+- Direct (`maestro delegate claude`): Single task, one-shot execution
+
+**Note:** Codex and Gemini are accessed via Claude Code's Subagent system, not directly through AgentMaestro.
 
 ### Slash Commands (Within Claude Code Session)
 
-When running in interactive mode, you can use slash commands:
+When running in interactive mode, you can use Claude Code's native slash commands. For delegation, simply ask Claude naturally:
 
 ```bash
-# Within a Claude Code session
-> /delegate codex "build the API endpoints"
-> /delegate gemini "find the latest TypeScript best practices"
+# Within a Claude Code session - just ask naturally!
+> Can you use Codex to build the API endpoints quickly?
+> Search for the latest TypeScript best practices
+
+# Claude will automatically delegate to Subagents as needed
 ```
 
 ### List Available Agents

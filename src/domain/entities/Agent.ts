@@ -69,6 +69,9 @@ export class Agent implements AgentType {
   /**
    * Get command arguments for execution
    *
+   * Note: AgentMaestro only supports Claude Code directly.
+   * This method is simplified for Claude-only execution.
+   *
    * @param prompt - The user's message/prompt
    * @param options - Execution options
    * @param options.stream - Enable streaming output (default: false)
@@ -84,8 +87,6 @@ export class Agent implements AgentType {
    *
    * Session continuation behavior:
    * - Claude: Uses `--continue` (last session) or `--resume <sessionId>`
-   * - Codex: Uses `resume --last` or `resume <sessionId>`
-   * - Gemini: Handles sessions automatically via `--prompt-interactive`
    */
   getExecutionArgs(
     prompt: string,
@@ -93,37 +94,8 @@ export class Agent implements AgentType {
   ): string[] {
     const args: string[] = [];
 
-    // Codex dangerous mode (configurable via options)
-    if (this.name === 'codex' && options?.dangerousMode !== false) {
-      args.push('--dangerously-bypass-approvals-and-sandbox');
-    }
-    const finalPrompt = prompt;
-
-    // Handle Codex continuation specially (it's a different command structure)
-    if (this.name === 'codex' && options?.continueSession) {
-      // Codex resume: codex resume [--last | <sessionId>] [--stream flags] <prompt>
-      args.push('resume');
-
-      if (options.sessionId) {
-        args.push(options.sessionId);
-      } else {
-        args.push('--last');
-      }
-
-      // Add streaming flags BEFORE prompt for codex resume
-      if (options?.stream && this.flags.stream) {
-        args.push(...this.flags.stream);
-      }
-
-      // Add prompt last
-      args.push(finalPrompt);
-
-      return args;
-    }
-
-    // Handle Claude continuation
-    if (this.name === 'claude' && options?.continueSession) {
-      // Claude: --continue (last session) or --resume <sessionId>
+    // Handle Claude session continuation
+    if (options?.continueSession) {
       if (options.sessionId) {
         args.push('--resume', options.sessionId);
       } else {
@@ -132,19 +104,14 @@ export class Agent implements AgentType {
     }
 
     // Handle Claude Plan Mode
-    if (this.name === 'claude' && options?.planMode) {
+    if (options?.planMode) {
       args.push('--permission-mode', 'plan');
     }
-    // Gemini handles sessions automatically via --prompt-interactive
 
-    // Handle prompt method (standard execution)
-    if (this.flags.prompt === 'exec') {
-      args.push('exec', finalPrompt);
-    } else {
-      args.push(this.flags.prompt, finalPrompt);
-    }
+    // Add prompt
+    args.push(this.flags.prompt, prompt);
 
-    // Add streaming flags if requested and supported (after prompt)
+    // Add streaming flags if requested and supported
     if (options?.stream && this.flags.stream) {
       args.push(...this.flags.stream);
     }
