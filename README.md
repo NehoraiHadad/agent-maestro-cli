@@ -16,6 +16,7 @@ AgentMaestro provides a streamlined interface for Claude Code with built-in Plan
 - 🔄 **Smart Delegation** - Claude delegates to Codex/Gemini subagents when beneficial
 - 🎓 **Skills Integration** - Enhanced delegation through native Skills system
 - 🚀 **Zero Configuration** - Works with existing Claude Code installation
+- ⚙️ **Flexible Configuration** - File, environment, and CLI-based configuration with priority system
 - 💬 **Interactive Mode** - Clean, user-friendly interface
 - 🔧 **Session Continuity** - Maintains conversation context across interactions
 - 💾 **Session Persistence** - Save, load, and export conversation sessions
@@ -371,6 +372,121 @@ $ maestro --list-sessions
 
 # Export for documentation
 $ maestro --export session_abc123 markdown > auth-session.md
+```
+
+### Configuration Management
+
+AgentMaestro supports a comprehensive configuration system with multiple sources and priority levels.
+
+#### Configuration Priority
+
+Configuration is loaded in the following priority order (highest to lowest):
+1. **CLI arguments** (e.g., `--plan-mode`)
+2. **Environment variables** (e.g., `MAESTRO_PLAN_MODE=true`)
+3. **Configuration file** (`~/.maestrorc.json`)
+4. **Default values**
+
+#### Configuration File
+
+Create a `~/.maestrorc.json` file to customize AgentMaestro's behavior:
+
+```json
+{
+  "defaultMode": "interactive",
+  "planMode": false,
+  "theme": "dark",
+  "autoSave": true,
+  "logLevel": "info",
+  "timeout": 60000,
+  "features": {
+    "sessionPersistence": true,
+    "analytics": false
+  },
+  "ui": {
+    "showSpinner": true,
+    "statusDisplay": "enhanced",
+    "colors": true
+  },
+  "paths": {
+    "logDirectory": "~/.maestro/logs",
+    "sessionDirectory": "~/.maestro/sessions"
+  }
+}
+```
+
+#### Configuration Commands
+
+```bash
+# Get all configuration values
+maestro config list
+
+# Get a specific configuration value
+maestro config get planMode
+
+# Set a configuration value
+maestro config set autoSave true
+
+# Set nested configuration values
+maestro config set ui.showSpinner false
+maestro config set features.sessionPersistence true
+
+# Reset configuration to defaults
+maestro config reset --yes
+
+# Show configuration file path
+maestro config path
+
+# Validate configuration
+maestro config validate
+```
+
+#### Environment Variables
+
+You can override any configuration using environment variables with the `MAESTRO_` prefix:
+
+```bash
+# Core settings
+export MAESTRO_DEFAULT_MODE=plan
+export MAESTRO_PLAN_MODE=true
+export MAESTRO_THEME=light
+export MAESTRO_AUTO_SAVE=false
+export MAESTRO_TIMEOUT=120000
+
+# Logging
+export MAESTRO_LOG_LEVEL=debug
+export MAESTRO_ENABLE_FILE_LOGGING=true
+export MAESTRO_LOG_DIRECTORY=/var/logs/maestro
+
+# Features
+export MAESTRO_FEATURES_SESSION_PERSISTENCE=true
+export MAESTRO_FEATURES_ANALYTICS=false
+
+# UI settings
+export MAESTRO_UI_SHOW_SPINNER=false
+export MAESTRO_UI_STATUS_DISPLAY=basic
+export MAESTRO_UI_COLORS=true
+
+# Paths
+export MAESTRO_PATHS_LOG_DIRECTORY=/custom/logs
+export MAESTRO_PATHS_SESSION_DIRECTORY=/custom/sessions
+```
+
+#### Example Workflows
+
+```bash
+# Create a custom configuration
+maestro config set logLevel debug
+maestro config set ui.statusDisplay enhanced
+maestro config set features.analytics false
+
+# Override with environment variables
+MAESTRO_PLAN_MODE=true maestro
+
+# Override with CLI arguments (highest priority)
+maestro --plan-mode --verbose
+
+# View your current configuration
+maestro config list
 ```
 
 ### List Available Agents
