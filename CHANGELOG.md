@@ -35,6 +35,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Magic numbers scattered throughout codebase
 - Duplicate Session ID regex patterns in Maestro
 - Inconsistent logging practices
+- Version mismatch between CLI and package.json (CLI now reads version dynamically)
 
 ### Removed
 - Direct console.log usage in production code
