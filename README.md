@@ -18,6 +18,7 @@ AgentMaestro provides a streamlined interface for Claude Code with built-in Plan
 - 🚀 **Zero Configuration** - Works with existing Claude Code installation
 - 💬 **Interactive Mode** - Clean, user-friendly interface
 - 🔧 **Session Continuity** - Maintains conversation context across interactions
+- 💾 **Session Persistence** - Save, load, and export conversation sessions
 - 📊 **Rich Logging** - Beautiful terminal output with progress indicators
 - 🔍 **Live Detection** - Real-time monitoring when Claude Code uses subagents
 
@@ -316,6 +317,60 @@ When running in interactive mode, you can use Claude Code's native slash command
 > Search for the latest TypeScript best practices
 
 # Claude will automatically delegate to Subagents as needed
+```
+
+### Session Persistence
+
+AgentMaestro supports saving and loading conversation sessions for later review or continuation.
+
+#### Interactive Session Commands
+
+```bash
+# Within a Claude Code session:
+/save [name]           # Save current session with optional name
+/sessions              # List all saved sessions
+/load <sessionId>      # Load a saved session (view info)
+/session-info          # Display current session information
+```
+
+#### CLI Commands
+
+```bash
+# List all saved sessions
+maestro --list-sessions
+
+# Export session to JSON
+maestro --export <sessionId> json > session.json
+
+# Export session to Markdown
+maestro --export <sessionId> markdown > session.md
+
+# Delete a saved session
+maestro --delete-session <sessionId>
+```
+
+#### Session Storage
+
+Sessions are stored in `~/.maestro/sessions/` and include:
+- Complete conversation history
+- Message metadata (timestamps, agent info)
+- Session statistics (duration, message counts)
+- Optional tags and custom names
+
+**Example workflow:**
+
+```bash
+$ maestro
+> Build a user authentication system
+
+# After working on the task...
+> /save auth-implementation
+
+# Later, view saved sessions
+$ maestro --list-sessions
+
+# Export for documentation
+$ maestro --export session_abc123 markdown > auth-session.md
 ```
 
 ### List Available Agents
