@@ -19,6 +19,7 @@ import { ListSessionsCommand } from './commands/ListSessionsCommand.js';
 import { DeleteSessionCommand } from './commands/DeleteSessionCommand.js';
 import { ExportSessionCommand } from './commands/ExportSessionCommand.js';
 import { ConfigCommand } from './commands/ConfigCommand.js';
+import { AnalyticsCommand } from './commands/AnalyticsCommand.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(
@@ -43,6 +44,7 @@ ListSessionsCommand.register(program);
 DeleteSessionCommand.register(program);
 ExportSessionCommand.register(program);
 ConfigCommand.register(program);
+AnalyticsCommand.register(program);
 
 // Graceful shutdown handling
 let isShuttingDown = false;
