@@ -18,6 +18,8 @@ import {
   MaestroError,
   AgentError
 } from '../../shared/errors/index.js';
+import { MiddlewareManager } from '../middleware/MiddlewareManager.js';
+import type { Middleware, MiddlewareContext } from '../middleware/types.js';
 
 export interface MaestroStats {
   totalMessages: number;
@@ -38,6 +40,7 @@ export class Maestro {
   private statusUpdater: StatusUpdater;
   private loggingManager: LoggingManager;
   private sessionIdExtractor: SessionIdExtractor;
+  private middlewareManager: MiddlewareManager;
   private spinner: Spinner | null = null;
   private isRunning: boolean = false;
 
@@ -81,6 +84,10 @@ export class Maestro {
     this.outputFormatter = new OutputFormatter();
     this.statusUpdater = new StatusUpdater();
     this.sessionIdExtractor = new SessionIdExtractor();
+    this.middlewareManager = new MiddlewareManager({
+      continueOnError: true,
+      trackPerformance: true,
+    });
   }
 
   /**
@@ -174,8 +181,26 @@ export class Maestro {
       // Add user message to session
       this.sessionManager.addUserMessage(message);
 
-      // Execute primary agent
-      const result = await this.executePrimaryAgent(message);
+      // Create middleware context
+      const cliSession = this.sessionManager.getCliSession(this.primaryAgent.name);
+      const middlewareContext: MiddlewareContext = {
+        agent: this.primaryAgent.name,
+        sessionId: cliSession?.sessionId,
+        timestamp: Date.now(),
+        metadata: {},
+      };
+
+      // Run before middleware hooks
+      const processedMessage = await this.middlewareManager.runBefore(
+        message,
+        middlewareContext
+      );
+
+      // Execute primary agent with processed message
+      let result = await this.executePrimaryAgent(processedMessage);
+
+      // Run after middleware hooks
+      result = await this.middlewareManager.runAfter(result, middlewareContext);
 
       return result;
     } catch (error) {
@@ -573,6 +598,36 @@ export class Maestro {
         });
       }
     }
+  }
+
+  /**
+   * Get middleware manager for external configuration
+   * @returns The middleware manager instance
+   */
+  getMiddlewareManager(): MiddlewareManager {
+    return this.middlewareManager;
+  }
+
+  /**
+   * Register a middleware
+   * @param middleware - Middleware to register
+   */
+  useMiddleware(middleware: Middleware): void {
+    this.middlewareManager.use(middleware);
+    this.loggingManager.info('Maestro', `Registered middleware: ${middleware.name}`);
+  }
+
+  /**
+   * Remove a middleware by name
+   * @param name - Middleware name
+   * @returns True if middleware was removed
+   */
+  removeMiddleware(name: string): boolean {
+    const removed = this.middlewareManager.remove(name);
+    if (removed) {
+      this.loggingManager.info('Maestro', `Removed middleware: ${name}`);
+    }
+    return removed;
   }
 
   /**
