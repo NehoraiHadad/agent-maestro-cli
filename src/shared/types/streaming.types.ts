@@ -16,7 +16,9 @@ export type EventType =
   | 'tool_use'
   | 'tool_result'
   | 'user'
-  | 'error';
+  | 'error'
+  | 'thinking'
+  | 'progress';
 
 export type ItemType =
   | 'reasoning'
@@ -84,4 +86,68 @@ export interface StatusUpdate {
 export interface ParsedResponse {
   content: string;
   metadata?: Record<string, unknown>;
+}
+
+/**
+ * Enhanced event types for structured extraction
+ */
+export interface ThinkingEvent {
+  type: 'thinking';
+  content: string;
+  timestamp: number;
+}
+
+export interface ToolUseEvent {
+  type: 'tool_use';
+  toolName: string;
+  input: Record<string, unknown>;
+  timestamp: number;
+}
+
+export interface ToolResultEvent {
+  type: 'tool_result';
+  toolName: string;
+  output: string;
+  isError: boolean;
+  timestamp: number;
+}
+
+export interface ProgressEvent {
+  type: 'progress';
+  current: number;
+  total: number;
+  label: string;
+  timestamp: number;
+}
+
+export interface TextEvent {
+  type: 'text';
+  content: string;
+  timestamp: number;
+}
+
+export type ExtractedEvent =
+  | ThinkingEvent
+  | ToolUseEvent
+  | ToolResultEvent
+  | ProgressEvent
+  | TextEvent;
+
+/**
+ * Processed stream with extracted events and metadata
+ */
+export interface ProcessedStream {
+  text: string;
+  events: ExtractedEvent[];
+  metadata: StreamMetadata;
+}
+
+/**
+ * Stream metadata
+ */
+export interface StreamMetadata {
+  hasThinking: boolean;
+  hasToolUse: boolean;
+  toolsUsed: string[];
+  eventCount: number;
 }
