@@ -22,3 +22,6 @@ export * from './StatusDisplay.js';
 
 // Stream rendering
 export * from './StreamRenderer.js';
+
+// Command palette
+export * from './CommandPalette.js';
