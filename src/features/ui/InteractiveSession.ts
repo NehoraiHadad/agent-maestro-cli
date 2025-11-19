@@ -16,6 +16,7 @@ import {
   MessageProcessor
 } from './session/SessionOutput.js';
 import { SessionCommands } from './session/SessionCommands.js';
+import { CommandPalette } from './CommandPalette.js';
 
 /**
  * Main interactive session coordinator
@@ -33,6 +34,7 @@ export class InteractiveSession {
   private sessionDisplay: SessionDisplay;
   private inputValidator: InputValidator;
   private sessionCommands: SessionCommands;
+  private commandPalette: CommandPalette;
 
   private isActive: boolean = false;
 
@@ -47,6 +49,7 @@ export class InteractiveSession {
     this.inputValidator = new InputValidator();
     this.messageProcessor = new MessageProcessor(this.maestro, this.logger);
     this.sessionCommands = new SessionCommands(this.maestro, this.logger);
+    this.commandPalette = new CommandPalette(this.maestro, this.logger);
 
     // Initialize readline
     this.rl = readline.createInterface({
@@ -81,11 +84,12 @@ export class InteractiveSession {
   }
 
   /**
-   * Setup keyboard shortcuts (Shift+Tab, Ctrl+C, Ctrl+D)
+   * Setup keyboard shortcuts (Shift+Tab, Ctrl+P, Ctrl+C, Ctrl+D)
    */
   private setupKeyboardShortcuts(): void {
     this.keypressHandler.setup({
       onPlanModeToggle: () => this.updatePrompt(),
+      onCommandPalette: () => this.showCommandPalette(),
       onInterrupt: () => {}, // Handled by keypress handler
       onEOF: () => this.stop()
     });
@@ -186,5 +190,24 @@ export class InteractiveSession {
    */
   private updatePrompt(): void {
     this.rl.setPrompt(this.getPrompt());
+  }
+
+  /**
+   * Show the command palette
+   */
+  private async showCommandPalette(): Promise<void> {
+    // Pause readline to prevent input conflicts
+    this.rl.pause();
+
+    try {
+      await this.commandPalette.show();
+    } catch (error) {
+      // Handle any errors from the palette
+      this.logger.error(`Command palette error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      // Resume readline and show prompt
+      this.rl.resume();
+      this.rl.prompt(true);
+    }
   }
 }
