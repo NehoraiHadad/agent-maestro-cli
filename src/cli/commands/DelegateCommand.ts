@@ -121,7 +121,7 @@ export class DelegateCommand {
    * Note: AgentMaestro only supports Claude Code.
    * This method is simplified for Claude-only execution.
    */
-  private static buildArgs(agentName: AgentName, task: string): string[] {
+  private static buildArgs(_agentName: AgentName, task: string): string[] {
     // claude -p "task" (one-shot mode)
     return ['-p', task];
   }

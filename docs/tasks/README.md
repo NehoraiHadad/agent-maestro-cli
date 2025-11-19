@@ -18,17 +18,17 @@ AgentMaestro is a wrapper for Claude Code that adds enhanced capabilities like P
 
 | Phase | Tasks | Status | Progress |
 |-------|-------|--------|----------|
-| **Phase 1: Critical Fixes** | 3 | 🟡 In Progress | 67% |
+| **Phase 1: Critical Fixes** | 3 | ✅ Complete | 100% |
 | **Phase 2: Foundation** | 3 | 🔴 Not Started | 0% |
 | **Phase 3: Advanced Features** | 3 | 🔴 Not Started | 0% |
 | **Phase 4: UI/UX** | 3 | 🔴 Not Started | 0% |
 | **Phase 5: Analytics** | 2 | 🔴 Not Started | 0% |
 
 **Total Tasks**: 14
-**Completed**: 2
+**Completed**: 3
 **In Progress**: 0
 **Blocked**: 0
-**Not Started**: 12
+**Not Started**: 11
 
 ---
 
@@ -40,7 +40,7 @@ AgentMaestro is a wrapper for Claude Code that adds enhanced capabilities like P
 |----|------|--------|----------|---------------------|
 | TASK-001 | Fix Version Mismatch | ✅ Completed | P0 | Yes |
 | TASK-002 | Decide & Implement Wrapper Strategy | ✅ Completed | P0 | No (blocks others) |
-| TASK-003 | Clean Unused Code | 🔴 Not Started | P0 | No (depends on TASK-002) |
+| TASK-003 | Clean Unused Code | ✅ Completed | P0 | No (depends on TASK-002) |
 
 ### Phase 2: Foundation (Week 1)
 
@@ -122,8 +122,19 @@ AgentMaestro is a wrapper for Claude Code that adds enhanced capabilities like P
   - ✅ Updated README.md with clear architecture explanation
   - ✅ Unblocked: TASK-003, TASK-004, TASK-005, TASK-006
 
+- **TASK-003**: Clean Unused Code (2025-11-19)
+  - ✅ Removed Codex/Gemini constants from agents.ts
+  - ✅ Updated AgentName type to only 'claude'
+  - ✅ Removed dangerousMode from AgentExecutionOptions
+  - ✅ Deleted CodexParser.ts and GeminiParser.ts
+  - ✅ Simplified ParserFactory to Claude-only
+  - ✅ Cleaned up MetadataCleaner (removed Codex/Gemini methods)
+  - ✅ All tests passing (160/160)
+  - ✅ Build successful, bundle size: 645K
+  - ✅ Phase 1 complete - ready for Phase 2
+
 ### In Progress Tasks
-*None yet*
+*None*
 
 ### Blocked Tasks
 *None yet*
@@ -131,8 +142,8 @@ AgentMaestro is a wrapper for Claude Code that adds enhanced capabilities like P
 ### Next Actions
 1. ✅ ~~Start with TASK-001 (Fix Version) - quick win~~
 2. ✅ ~~Complete TASK-002 (Wrapper Strategy) - critical decision~~
-3. Execute TASK-003 (Clean Unused Code)
-4. Execute Phase 2 tasks in parallel (now unblocked)
+3. ✅ ~~Execute TASK-003 (Clean Unused Code)~~
+4. Execute Phase 2 tasks in parallel (TASK-004, TASK-005, TASK-006)
 
 ---
 
