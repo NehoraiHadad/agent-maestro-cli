@@ -6,6 +6,10 @@
 import type { Maestro } from '../../orchestration/Maestro.js';
 import { ConsoleLogger } from '../logger/ConsoleLogger.js';
 import { SessionPersistence, FileSystemStorage } from '../../persistence/index.js';
+import { HistoryManager } from '../../history/index.js';
+import { writeFileSync } from 'fs';
+import { homedir } from 'os';
+import { join } from 'path';
 
 export interface SessionCommand {
   name: string;
@@ -73,6 +77,27 @@ export class SessionCommands {
       name: '/load',
       description: 'Load a saved session by ID',
       execute: (args?: string) => this.loadSession(args)
+    });
+
+    // /search - Search in conversation history
+    this.commands.set('/search', {
+      name: '/search',
+      description: 'Search in conversation history',
+      execute: (args?: string) => this.searchHistory(args)
+    });
+
+    // /history - Show conversation history with filters
+    this.commands.set('/history', {
+      name: '/history',
+      description: 'Show conversation history (--last N, --agent NAME, --role ROLE)',
+      execute: (args?: string) => this.showHistory(args)
+    });
+
+    // /export - Export conversation history
+    this.commands.set('/export', {
+      name: '/export',
+      description: 'Export conversation history (json|markdown|text)',
+      execute: (args?: string) => this.exportHistory(args)
     });
   }
 
@@ -304,5 +329,274 @@ export class SessionCommands {
       this.logger.error(`Failed to load session: ${error instanceof Error ? error.message : String(error)}`);
       this.logger.separator();
     }
+  }
+
+  /**
+   * Search in conversation history
+   */
+  private async searchHistory(query?: string): Promise<void> {
+    if (!query || query.trim() === '') {
+      this.logger.separator();
+      this.logger.error('Please provide a search query.');
+      this.logger.info('Usage: /search <query>');
+      this.logger.info('Example: /search "authentication"');
+      this.logger.separator();
+      return;
+    }
+
+    this.logger.separator();
+    this.logger.info(`🔍 Searching for: "${query}"`);
+    this.logger.separator();
+
+    try {
+      // Get current session messages
+      const sessionManager = (this.maestro as any).sessionManager;
+      const messages = sessionManager.getMessages();
+
+      // Create history manager and search
+      const historyManager = new HistoryManager(messages);
+      const results = historyManager.search(query, {
+        includeContext: true,
+        contextSize: 1
+      });
+
+      if (results.length === 0) {
+        this.logger.info('No results found.');
+        this.logger.separator();
+        return;
+      }
+
+      this.logger.success(`Found ${results.length} result${results.length !== 1 ? 's' : ''}:`);
+      this.logger.separator();
+
+      // Display results with context
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i] as any;
+        const msg = result.message || result;
+
+        // Show context before
+        if (result.before && result.before.length > 0) {
+          for (const beforeMsg of result.before) {
+            this.logger.info(`  [Context] ${this.formatMessagePreview(beforeMsg)}`);
+          }
+        }
+
+        // Show matched message
+        const roleLabel = this.formatRole(msg.role);
+        const agent = msg.metadata.agent ? ` (${String(msg.metadata.agent)})` : '';
+        this.logger.info(`\n✓ [${i + 1}] ${roleLabel}${agent}`);
+        this.logger.info(`   ${msg.timestamp.toLocaleString()}`);
+        this.logger.separator();
+        this.logger.info(this.truncateContent(msg.content, 500));
+        this.logger.separator();
+
+        // Show context after
+        if (result.after && result.after.length > 0) {
+          for (const afterMsg of result.after) {
+            this.logger.info(`  [Context] ${this.formatMessagePreview(afterMsg)}`);
+          }
+        }
+
+        if (i < results.length - 1) {
+          this.logger.info('');
+        }
+      }
+
+      this.logger.separator();
+
+    } catch (error) {
+      this.logger.separator();
+      this.logger.error(`Search failed: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.separator();
+    }
+  }
+
+  /**
+   * Show conversation history with filters
+   */
+  private async showHistory(args?: string): Promise<void> {
+    this.logger.separator();
+    this.logger.header('Conversation History');
+    this.logger.separator();
+
+    try {
+      // Parse arguments
+      const options = this.parseHistoryArgs(args || '');
+
+      // Get current session messages
+      const sessionManager = (this.maestro as any).sessionManager;
+      const messages = sessionManager.getMessages();
+
+      // Create history manager
+      const historyManager = new HistoryManager(messages);
+
+      // Apply filters
+      let filteredMessages = messages;
+      if (options.agent || options.role || options.last) {
+        filteredMessages = historyManager.filter({
+          agents: options.agent ? [options.agent] : undefined,
+          roles: options.role ? [options.role as any] : undefined,
+          limit: options.last
+        });
+      }
+
+      if (filteredMessages.length === 0) {
+        this.logger.info('No messages found.');
+        this.logger.separator();
+        return;
+      }
+
+      // Show statistics
+      const stats = historyManager.getStats();
+      this.logger.info(`Total Messages: ${stats.totalMessages}`);
+      this.logger.info(`Showing: ${filteredMessages.length} message${filteredMessages.length !== 1 ? 's' : ''}`);
+      this.logger.separator();
+
+      // Display messages
+      for (let i = 0; i < filteredMessages.length; i++) {
+        const msg = filteredMessages[i];
+        const roleLabel = this.formatRole(msg.role);
+        const agent = msg.metadata.agent ? ` (${String(msg.metadata.agent)})` : '';
+
+        this.logger.info(`\n[${i + 1}] ${roleLabel}${agent}`);
+        this.logger.info(`    ${msg.timestamp.toLocaleString()}`);
+        this.logger.info(`    ${this.truncateContent(msg.content, 200)}`);
+      }
+
+      this.logger.separator();
+
+    } catch (error) {
+      this.logger.separator();
+      this.logger.error(`Failed to show history: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.separator();
+    }
+  }
+
+  /**
+   * Export conversation history
+   */
+  private async exportHistory(args?: string): Promise<void> {
+    const format = (args || 'json').trim().toLowerCase();
+
+    if (!['json', 'markdown', 'text', 'md', 'txt'].includes(format)) {
+      this.logger.separator();
+      this.logger.error('Invalid export format.');
+      this.logger.info('Usage: /export <format>');
+      this.logger.info('Supported formats: json, markdown (md), text (txt)');
+      this.logger.separator();
+      return;
+    }
+
+    this.logger.separator();
+    this.logger.info(`📤 Exporting conversation history as ${format}...`);
+
+    try {
+      // Normalize format
+      const normalizedFormat = format === 'md' ? 'markdown' : format === 'txt' ? 'text' : format;
+
+      // Get current session messages
+      const sessionManager = (this.maestro as any).sessionManager;
+      const messages = sessionManager.getMessages();
+
+      // Create history manager and export
+      const historyManager = new HistoryManager(messages);
+      const exported = historyManager.export(normalizedFormat as 'json' | 'md' | 'txt', {
+        includeMetadata: true,
+        includeTimestamps: true,
+        prettyPrint: true,
+        includeStats: true
+      });
+
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+      const sessionSummary = sessionManager.getSummary();
+      const sessionId = sessionSummary.sessionId.split('_')[1].substring(0, 8);
+      const ext = normalizedFormat === 'markdown' ? 'md' : normalizedFormat === 'text' ? 'txt' : 'json';
+      const filename = `conversation-${sessionId}-${timestamp}.${ext}`;
+      const filepath = join(homedir(), '.maestro', 'exports', filename);
+
+      // Ensure exports directory exists
+      const { mkdirSync, existsSync } = await import('fs');
+      const exportsDir = join(homedir(), '.maestro', 'exports');
+      if (!existsSync(exportsDir)) {
+        mkdirSync(exportsDir, { recursive: true });
+      }
+
+      // Write file
+      writeFileSync(filepath, exported, 'utf-8');
+
+      this.logger.separator();
+      this.logger.success('✓ Export successful');
+      this.logger.info(`File: ${filepath}`);
+      this.logger.info(`Format: ${normalizedFormat}`);
+      this.logger.info(`Messages: ${messages.length}`);
+      this.logger.separator();
+
+    } catch (error) {
+      this.logger.separator();
+      this.logger.error(`Export failed: ${error instanceof Error ? error.message : String(error)}`);
+      this.logger.separator();
+    }
+  }
+
+  /**
+   * Parse history command arguments
+   */
+  private parseHistoryArgs(args: string): { last?: number; agent?: string; role?: string } {
+    const options: { last?: number; agent?: string; role?: string } = {};
+    const parts = args.split(/\s+/);
+
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i];
+      if (part === '--last' && i + 1 < parts.length) {
+        options.last = parseInt(parts[i + 1], 10);
+        i++;
+      } else if (part === '--agent' && i + 1 < parts.length) {
+        options.agent = parts[i + 1];
+        i++;
+      } else if (part === '--role' && i + 1 < parts.length) {
+        options.role = parts[i + 1];
+        i++;
+      }
+    }
+
+    return options;
+  }
+
+  /**
+   * Format message role for display
+   */
+  private formatRole(role: string): string {
+    switch (role) {
+      case 'user':
+        return 'User';
+      case 'assistant':
+        return 'Assistant';
+      case 'delegation':
+        return 'Delegation';
+      case 'system':
+        return 'System';
+      default:
+        return role;
+    }
+  }
+
+  /**
+   * Format message preview for context display
+   */
+  private formatMessagePreview(msg: any): string {
+    const roleLabel = this.formatRole(msg.role);
+    const content = this.truncateContent(msg.content, 80);
+    return `${roleLabel}: ${content}`;
+  }
+
+  /**
+   * Truncate content to specified length
+   */
+  private truncateContent(content: string, maxLength: number): string {
+    if (content.length <= maxLength) {
+      return content;
+    }
+    return content.substring(0, maxLength) + '...';
   }
 }

@@ -25,6 +25,10 @@ import { SmartContextInjector } from '../context/index.js';
 export interface MaestroStats {
   totalMessages: number;
   sessionDuration: number;
+  userMessages: number;
+  assistantMessages: number;
+  delegationMessages: number;
+  startTime: Date;
 }
 
 /**
@@ -271,7 +275,11 @@ export class Maestro {
 
     return {
       totalMessages: summary.messageCount,
-      sessionDuration: summary.duration
+      sessionDuration: summary.duration,
+      userMessages: summary.userMessages,
+      assistantMessages: summary.assistantMessages,
+      delegationMessages: summary.delegationMessages,
+      startTime: summary.startTime
     };
   }
 
@@ -289,6 +297,14 @@ export class Maestro {
    */
   getLoggingManager(): LoggingManager {
     return this.loggingManager;
+  }
+
+  /**
+   * Get the configuration manager
+   * @returns Configuration manager instance
+   */
+  getConfigManager(): ConfigManager {
+    return this.config;
   }
 
 

@@ -67,6 +67,7 @@ export interface KeypressCallbacks {
   onPlanModeToggle: (newState: boolean) => void;
   onInterrupt: () => void;
   onEOF: () => void;
+  onCommandPalette: () => void;
 }
 
 /**
@@ -127,6 +128,12 @@ export class KeypressHandler {
       return;
     }
 
+    // Ctrl+P to open Command Palette
+    if (this.isCtrlP(key)) {
+      this.handleCommandPalette(callbacks.onCommandPalette);
+      return;
+    }
+
     // Ctrl+C for graceful interrupt
     if (this.isCtrlC(key)) {
       this.handleInterrupt(callbacks.onInterrupt);
@@ -162,6 +169,13 @@ export class KeypressHandler {
   }
 
   /**
+   * Check if key combination is Ctrl+P
+   */
+  private isCtrlP(key: KeypressEvent): boolean {
+    return key.ctrl === true && key.name === 'p';
+  }
+
+  /**
    * Handle Plan Mode toggle
    */
   private handlePlanModeToggle(callback: (newState: boolean) => void): void {
@@ -193,6 +207,13 @@ export class KeypressHandler {
    */
   private handleEOF(callback: () => void): void {
     console.log('\n');
+    callback();
+  }
+
+  /**
+   * Handle Ctrl+P (Command Palette)
+   */
+  private handleCommandPalette(callback: () => void): void {
     callback();
   }
 
