@@ -16,3 +16,6 @@ export * from './menu/InteractiveMenu.js';
 
 // Interactive session
 export * from './InteractiveSession.js';
+
+// Status display
+export * from './StatusDisplay.js';

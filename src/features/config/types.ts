@@ -4,6 +4,7 @@
  */
 
 import type { LogLevel } from '../../shared/constants/index.js';
+import type { StatusDisplayConfig } from '../../shared/types/ui.types.js';
 
 export interface UIConfig {
   showSpinner: boolean;
@@ -45,6 +46,9 @@ export interface MaestroConfig {
 
   // Paths
   paths: PathsConfig;
+
+  // Status display configuration (from TASK-010)
+  statusDisplay?: StatusDisplayConfig;
 
   // Legacy/compatibility fields
   inactivityTimeout: number;

@@ -67,8 +67,8 @@ export class InteractiveSession {
     // Setup keyboard shortcuts
     this.setupKeyboardShortcuts();
 
-    // Show welcome message
-    this.sessionDisplay.showWelcome();
+    // Show welcome message with maestro instance for enhanced display
+    this.sessionDisplay.showWelcome(this.maestro);
 
     // Start prompt
     this.rl.prompt();
@@ -164,9 +164,9 @@ export class InteractiveSession {
     // Cleanup keypress handler
     this.keypressHandler.cleanup();
 
-    // Show session summary
+    // Show session summary with maestro instance for enhanced display
     const stats = this.maestro.getStats();
-    this.sessionDisplay.showSummary(stats);
+    this.sessionDisplay.showSummary(stats, this.maestro);
 
     // Cleanup
     await this.maestro.stop();

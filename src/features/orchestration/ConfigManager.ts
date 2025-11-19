@@ -288,6 +288,19 @@ export class ConfigManager {
       }
     }
 
+    // Status display validation (optional field from TASK-010)
+    if (this.config.statusDisplay) {
+      if (typeof this.config.statusDisplay.enabled !== 'boolean') {
+        errors.push('statusDisplay.enabled must be a boolean');
+      }
+      if (typeof this.config.statusDisplay.showHeader !== 'boolean') {
+        errors.push('statusDisplay.showHeader must be a boolean');
+      }
+      if (typeof this.config.statusDisplay.showProgress !== 'boolean') {
+        errors.push('statusDisplay.showProgress must be a boolean');
+      }
+    }
+
     return {
       valid: errors.length === 0,
       errors
@@ -338,6 +351,24 @@ export class ConfigManager {
       paths: {
         logDirectory: DEFAULT_LOG_DIRECTORY,
         sessionDirectory: join(homedir(), '.maestro', 'sessions')
+      },
+
+      // Status display defaults (from TASK-010)
+      statusDisplay: {
+        enabled: true,
+        showHeader: true,
+        showProgress: true,
+        headerWidth: 60,
+        theme: {
+          borderColor: 'cyan',
+          headerColor: 'magenta',
+          accentColor: 'cyan',
+          labelColor: 'gray',
+          valueColor: 'white',
+          progressBarFilled: '█',
+          progressBarEmpty: '░',
+          progressBarColor: 'cyan'
+        }
       }
     };
   }
