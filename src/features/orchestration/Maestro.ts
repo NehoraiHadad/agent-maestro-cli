@@ -20,6 +20,7 @@ import {
 } from '../../shared/errors/index.js';
 import { MiddlewareManager } from '../middleware/MiddlewareManager.js';
 import type { Middleware, MiddlewareContext } from '../middleware/types.js';
+import { SmartContextInjector } from '../context/index.js';
 
 export interface MaestroStats {
   totalMessages: number;
@@ -92,6 +93,9 @@ export class Maestro {
       continueOnError: true,
       trackPerformance: true,
     });
+
+    // Initialize context injection middleware if enabled
+    this.initializeContextInjection();
   }
 
   /**
@@ -689,5 +693,28 @@ export class Maestro {
   resetSession(): void {
     this.loggingManager.info('Maestro', 'Resetting session');
     this.sessionManager.clearCliSession(this.primaryAgent.name);
+  }
+
+  /**
+   * Initialize context injection middleware if enabled in config
+   */
+  private initializeContextInjection(): void {
+    const features = this.config.get('features');
+    const contextConfig = this.config.get('contextInjection');
+
+    // Check if context injection is enabled in features
+    if (features?.contextInjection && contextConfig?.enabled) {
+      const injector = new SmartContextInjector({
+        enabled: contextConfig.enabled,
+        includeGit: contextConfig.includeGit,
+        includeEnv: contextConfig.includeEnv,
+        includeProject: contextConfig.includeProject,
+        smartSelection: contextConfig.smartSelection,
+        maxRecentCommits: contextConfig.maxRecentCommits
+      });
+
+      this.middlewareManager.use(injector);
+      this.loggingManager.debug('Maestro', 'Smart context injection enabled');
+    }
   }
 }
