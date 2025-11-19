@@ -91,15 +91,21 @@ export class ConfigLoader {
     // Nested configs - Features
     if (env.MAESTRO_FEATURES_SESSION_PERSISTENCE) {
       if (!config.features) {
-        config.features = { sessionPersistence: false, analytics: false };
+        config.features = { sessionPersistence: false, analytics: false, contextInjection: true };
       }
       config.features.sessionPersistence = this.parseBoolean(env.MAESTRO_FEATURES_SESSION_PERSISTENCE);
     }
     if (env.MAESTRO_FEATURES_ANALYTICS) {
       if (!config.features) {
-        config.features = { sessionPersistence: true, analytics: false };
+        config.features = { sessionPersistence: true, analytics: false, contextInjection: true };
       }
       config.features.analytics = this.parseBoolean(env.MAESTRO_FEATURES_ANALYTICS);
+    }
+    if (env.MAESTRO_FEATURES_CONTEXT_INJECTION) {
+      if (!config.features) {
+        config.features = { sessionPersistence: true, analytics: false, contextInjection: true };
+      }
+      config.features.contextInjection = this.parseBoolean(env.MAESTRO_FEATURES_CONTEXT_INJECTION);
     }
 
     // Nested configs - UI

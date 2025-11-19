@@ -208,7 +208,8 @@ describe('ConfigLoader', () => {
       const config1: Partial<MaestroConfig> = {
         features: {
           sessionPersistence: true,
-          analytics: false
+          analytics: false,
+          contextInjection: true
         }
       };
 
@@ -280,7 +281,8 @@ describe('ConfigLoader', () => {
         maxLogSizeBytes: 10485760,
         features: {
           sessionPersistence: true,
-          analytics: false
+          analytics: false,
+          contextInjection: true
         },
         ui: {
           showSpinner: true,
@@ -329,7 +331,8 @@ describe('ConfigLoader', () => {
         maxLogSizeBytes: 10485760,
         features: {
           sessionPersistence: true,
-          analytics: false
+          analytics: false,
+          contextInjection: true
         },
         ui: {
           showSpinner: true,

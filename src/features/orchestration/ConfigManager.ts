@@ -263,6 +263,9 @@ export class ConfigManager {
       if (typeof this.config.features.analytics !== 'boolean') {
         errors.push('features.analytics must be a boolean');
       }
+      if (typeof this.config.features.contextInjection !== 'boolean') {
+        errors.push('features.contextInjection must be a boolean');
+      }
     }
 
     // UI validation
@@ -298,6 +301,29 @@ export class ConfigManager {
       }
       if (typeof this.config.statusDisplay.showProgress !== 'boolean') {
         errors.push('statusDisplay.showProgress must be a boolean');
+      }
+    }
+
+    // Context injection validation (optional field from TASK-014)
+    if (this.config.contextInjection) {
+      if (typeof this.config.contextInjection.enabled !== 'boolean') {
+        errors.push('contextInjection.enabled must be a boolean');
+      }
+      if (typeof this.config.contextInjection.includeGit !== 'boolean') {
+        errors.push('contextInjection.includeGit must be a boolean');
+      }
+      if (typeof this.config.contextInjection.includeEnv !== 'boolean') {
+        errors.push('contextInjection.includeEnv must be a boolean');
+      }
+      if (typeof this.config.contextInjection.includeProject !== 'boolean') {
+        errors.push('contextInjection.includeProject must be a boolean');
+      }
+      if (typeof this.config.contextInjection.smartSelection !== 'boolean') {
+        errors.push('contextInjection.smartSelection must be a boolean');
+      }
+      if (typeof this.config.contextInjection.maxRecentCommits !== 'number' ||
+          this.config.contextInjection.maxRecentCommits < 0) {
+        errors.push('contextInjection.maxRecentCommits must be a non-negative number');
       }
     }
 
@@ -337,7 +363,8 @@ export class ConfigManager {
       // Features
       features: {
         sessionPersistence: true,
-        analytics: false
+        analytics: false,
+        contextInjection: true
       },
 
       // UI settings
@@ -369,6 +396,16 @@ export class ConfigManager {
           progressBarEmpty: '░',
           progressBarColor: 'cyan'
         }
+      },
+
+      // Context injection defaults (from TASK-014)
+      contextInjection: {
+        enabled: true,
+        includeGit: true,
+        includeEnv: true,
+        includeProject: true,
+        smartSelection: true,
+        maxRecentCommits: 3
       }
     };
   }

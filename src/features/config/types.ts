@@ -15,6 +15,16 @@ export interface UIConfig {
 export interface FeaturesConfig {
   sessionPersistence: boolean;
   analytics: boolean;
+  contextInjection: boolean;
+}
+
+export interface ContextInjectionConfig {
+  enabled: boolean;
+  includeGit: boolean;
+  includeEnv: boolean;
+  includeProject: boolean;
+  smartSelection: boolean;
+  maxRecentCommits: number;
 }
 
 export interface PathsConfig {
@@ -49,6 +59,9 @@ export interface MaestroConfig {
 
   // Status display configuration (from TASK-010)
   statusDisplay?: StatusDisplayConfig;
+
+  // Context injection configuration (from TASK-014)
+  contextInjection?: ContextInjectionConfig;
 
   // Legacy/compatibility fields
   inactivityTimeout: number;
