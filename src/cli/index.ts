@@ -6,6 +6,9 @@
  */
 
 import { Command } from 'commander';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import { StartCommand } from './commands/StartCommand.js';
 import { ListCommand } from './commands/ListCommand.js';
 import { InfoCommand } from './commands/InfoCommand.js';
@@ -13,12 +16,17 @@ import { SkillsCommand } from './commands/SkillsCommand.js';
 import { InitCommand } from './commands/InitCommand.js';
 import { DelegateCommand } from './commands/DelegateCommand.js';
 
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const packageJson = JSON.parse(
+  readFileSync(join(__dirname, '../../package.json'), 'utf-8')
+);
+
 const program = new Command();
 
 program
   .name('maestro')
   .description('🎭 Multi-agent AI orchestration CLI')
-  .version('2.0.0');
+  .version(packageJson.version);
 
 // Register commands
 StartCommand.register(program);
