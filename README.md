@@ -20,6 +20,7 @@ AgentMaestro provides a streamlined interface for Claude Code with built-in Plan
 - 💬 **Interactive Mode** - Clean, user-friendly interface
 - 🔧 **Session Continuity** - Maintains conversation context across interactions
 - 💾 **Session Persistence** - Save, load, and export conversation sessions
+- 🔍 **History Search & Management** - Search, filter, and export conversation history
 - 📊 **Rich Logging** - Beautiful terminal output with progress indicators
 - 🔍 **Live Detection** - Real-time monitoring when Claude Code uses subagents
 
@@ -373,6 +374,60 @@ $ maestro --list-sessions
 # Export for documentation
 $ maestro --export session_abc123 markdown > auth-session.md
 ```
+
+### History Search & Management
+
+AgentMaestro provides powerful history search and filtering capabilities to help you navigate and analyze your conversations.
+
+#### Interactive History Commands
+
+```bash
+# Within a Claude Code session:
+/search "authentication"    # Search for specific content
+/history                    # Show conversation history
+/history --last 10          # Show last 10 messages
+/history --agent claude     # Filter by agent
+/history --role user        # Filter by message role
+/export json                # Export current conversation
+/export markdown            # Export as markdown
+```
+
+#### Search Features
+
+- **Full-text search**: Search across all message content
+- **Case-insensitive**: Finds matches regardless of case
+- **Context display**: Shows surrounding messages for better understanding
+- **Agent filtering**: Filter by specific agents
+- **Role filtering**: Filter by message type (user, assistant, delegation)
+- **Date filtering**: Search within specific time ranges
+
+#### Export Formats
+
+- **JSON**: Structured data with full metadata
+- **Markdown**: Human-readable format with formatting
+- **Text**: Simple plain text format
+
+All exports include conversation statistics and are saved to `~/.maestro/exports/`.
+
+**Example workflow:**
+
+```bash
+$ maestro
+> Implement JWT authentication
+
+# Search for authentication-related discussions
+> /search "JWT"
+
+# View last 5 messages from Claude
+> /history --agent claude --last 5
+
+# Export the conversation for documentation
+> /export markdown
+✓ Export successful
+File: ~/.maestro/exports/conversation-abc123-2025-01-15.md
+```
+
+For detailed documentation, see [docs/HISTORY.md](docs/HISTORY.md).
 
 ### Configuration Management
 

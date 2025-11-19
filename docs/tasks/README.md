@@ -20,7 +20,7 @@ AgentMaestro is a wrapper for Claude Code that adds enhanced capabilities like P
 |-------|-------|--------|----------|
 | **Phase 1: Critical Fixes** | 3 | ✅ Complete | 100% |
 | **Phase 2: Foundation** | 3 | ✅ Complete | 100% |
-| **Phase 3: Advanced Features** | 3 | 🟡 In Progress | 33% |
+| **Phase 3: Advanced Features** | 3 | 🟡 In Progress | 66% |
 | **Phase 4: UI/UX** | 3 | ✅ Complete | 100% |
 | **Phase 5: Analytics** | 2 | 🔴 Not Started | 0% |
 
@@ -56,7 +56,7 @@ AgentMaestro is a wrapper for Claude Code that adds enhanced capabilities like P
 |----|------|--------|----------|---------------------|
 | TASK-007 | Middleware System | ✅ Completed | P2 | No (depends on TASK-005) |
 | TASK-008 | Plugin System | 🔴 Not Started | P2 | No (depends on TASK-007) |
-| TASK-009 | History Search & Management | 🔴 Not Started | P2 | Yes (after Phase 2) |
+| TASK-009 | History Search & Management | ✅ Completed | P2 | Yes (after Phase 2) |
 
 ### Phase 4: UI/UX (Weeks 3-4)
 
@@ -198,6 +198,18 @@ AgentMaestro is a wrapper for Claude Code that adds enhanced capabilities like P
   - ✅ Build successful, all 293 tests passing
   - ✅ Unblocked: TASK-008 (Plugin System), TASK-013 (Delegation Analytics)
 
+- **TASK-009**: History Search & Management (2025-11-19)
+  - ✅ Created HistoryManager class with search, filter, export, and stats functionality
+  - ✅ Implemented full-text search with case-sensitive/insensitive options
+  - ✅ Added filtering by agent, date range, role, and custom predicates
+  - ✅ Implemented export to JSON, Markdown, and Text formats
+  - ✅ Added context display for search results (surrounding messages)
+  - ✅ Integrated session commands: /search, /history, /export
+  - ✅ Created comprehensive test suite (50 tests passing)
+  - ✅ Created detailed documentation (docs/HISTORY.md)
+  - ✅ Updated README with history features
+  - ✅ Build successful, all 432 tests passing
+
 - **TASK-011**: Command Palette (2025-11-19)
   - ✅ Implemented CommandPalette class with inquirer for interactive UI
   - ✅ Created quick actions menu with all required options (load/save/reset session, settings, statistics)
@@ -225,7 +237,9 @@ AgentMaestro is a wrapper for Claude Code that adds enhanced capabilities like P
 5. ✅ ~~Execute TASK-010 (Enhanced Status Display)~~
 6. ✅ ~~Execute TASK-012 (Real-time Streaming Improvements)~~
 7. ✅ ~~Execute TASK-007 (Middleware System)~~
-8. Continue with remaining tasks (TASK-008, TASK-009, TASK-011, TASK-013, TASK-014)
+8. ✅ ~~Execute TASK-009 (History Search & Management)~~
+9. ✅ ~~Execute TASK-011 (Command Palette)~~
+10. Continue with remaining tasks (TASK-008, TASK-013, TASK-014)
 
 ---
 
